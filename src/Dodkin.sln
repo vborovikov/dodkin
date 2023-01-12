@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33205.214
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Dodkin", "Dodkin\Dodkin.csproj", "{F878373B-5991-4A53-ABFD-966E0F71EC41}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dodkin.Tests", "Dodkin.Tests\Dodkin.Tests.csproj", "{4462D3C5-EC0C-4B97-8A53-CBCF8A1E673B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F878373B-5991-4A53-ABFD-966E0F71EC41}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F878373B-5991-4A53-ABFD-966E0F71EC41}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F878373B-5991-4A53-ABFD-966E0F71EC41}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F878373B-5991-4A53-ABFD-966E0F71EC41}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4462D3C5-EC0C-4B97-8A53-CBCF8A1E673B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4462D3C5-EC0C-4B97-8A53-CBCF8A1E673B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4462D3C5-EC0C-4B97-8A53-CBCF8A1E673B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4462D3C5-EC0C-4B97-8A53-CBCF8A1E673B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {27062D1C-9E49-4239-A7EA-98994C1C8224}
+	EndGlobalSection
+EndGlobal
