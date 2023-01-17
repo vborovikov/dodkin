@@ -29,6 +29,8 @@
 
         public static MessageQueueName FromPathName(string pathName)
         {
+            ArgumentNullException.ThrowIfNullOrEmpty(pathName);
+
             var parts = pathName.Split('\\', StringSplitOptions.RemoveEmptyEntries);
             var isPrivate = parts.Length == 3 && String.Equals(parts[1], "private$", StringComparison.OrdinalIgnoreCase);
             var computerName = parts[0];
@@ -40,7 +42,12 @@
 
         public static MessageQueueName FromFormatName(string formatName)
         {
-            return null;
+            ArgumentNullException.ThrowIfNullOrEmpty(formatName);
+
+            if (formatName.StartsWith("DIRECT=", StringComparison.OrdinalIgnoreCase))
+                return DirectFormatName.Parse(formatName);
+
+            throw new NotSupportedException();
         }
     }
 
@@ -58,15 +65,19 @@
         private readonly ComputerAddressProtocol protocol;
         private readonly string address;
 
-        public DirectFormatName(string queueName, string computerName, bool isPrivate)
+        internal DirectFormatName(string queueName, string computerName, bool isPrivate)
+            : this(queueName, isPrivate ? QueueType.Private : QueueType.Public, ComputerAddressProtocol.OS, computerName)
+        { }
+
+        internal DirectFormatName(string queueName, QueueType queueType, ComputerAddressProtocol protocol, string address)
         {
             ArgumentNullException.ThrowIfNullOrEmpty(queueName);
-            ArgumentNullException.ThrowIfNullOrEmpty(computerName);
+            ArgumentNullException.ThrowIfNullOrEmpty(address);
 
             this.QueueName = queueName;
-            this.protocol = ComputerAddressProtocol.OS;
-            this.address = computerName;
-            this.QueueType = isPrivate ? QueueType.Private : QueueType.Public;
+            this.QueueType = queueType;
+            this.protocol = protocol;
+            this.address = address;
         }
 
         public override string QueueName { get; }
@@ -96,5 +107,29 @@
         }
 
         public override string ToString() => this.FormatName;
+
+        public static DirectFormatName Parse(ReadOnlySpan<char> formatName)
+        {
+            if (formatName.IsEmpty || formatName.IsWhiteSpace())
+                throw new ArgumentNullException(nameof(formatName));
+            if (!formatName.StartsWith("DIRECT=", StringComparison.OrdinalIgnoreCase))
+                throw new FormatException();
+
+            formatName = formatName[7..]; // skip "DIRECT="
+            var separatorPos = formatName.IndexOf(':');
+            if (separatorPos < 0)
+                throw new FormatException();
+
+            var protocol = formatName[..separatorPos];
+            var address = formatName[(separatorPos + 1)..formatName.IndexOf('\\')];
+            var queueType = formatName.Contains("private$", StringComparison.OrdinalIgnoreCase) ? QueueType.Private :
+                formatName.Contains("system$", StringComparison.OrdinalIgnoreCase) ? QueueType.System : QueueType.Public;
+            var queueName = formatName[(formatName.LastIndexOfAny("\\/") + 1)..];
+
+            var protocolParsed = Enum.Parse<ComputerAddressProtocol>(protocol);
+            var addressStr = address.Equals(".", StringComparison.OrdinalIgnoreCase) ? Environment.MachineName : address.ToString();
+
+            return new DirectFormatName(queueName.ToString(), queueType, protocolParsed, addressStr);
+        }
     }
 }

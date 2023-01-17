@@ -17,9 +17,9 @@ public class MessageQueueNameTests
     [TestMethod]
     public void FromFormatName_DirectFormatName_PathName()
     {
-        var queueName = MessageQueueName.FromFormatName(@"DIRECT=.\PRIVATE$\simple");
+        var queueName = MessageQueueName.FromFormatName(@"DIRECT=OS:.\PRIVATE$\simple");
 
         Assert.IsNotNull(queueName);
-        Assert.AreEqual(@".\private$\simple", queueName.PathName);
+        Assert.AreEqual(@$"{Environment.MachineName}\PRIVATE$\simple", queueName.PathName);
     }
 }
