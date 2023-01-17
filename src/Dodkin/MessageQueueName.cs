@@ -126,7 +126,7 @@
                 formatName.Contains("system$", StringComparison.OrdinalIgnoreCase) ? QueueType.System : QueueType.Public;
             var queueName = formatName[(formatName.LastIndexOfAny("\\/") + 1)..];
 
-            var protocolParsed = Enum.Parse<ComputerAddressProtocol>(protocol);
+            var protocolParsed = Enum.Parse<ComputerAddressProtocol>(protocol, ignoreCase: true);
             var addressStr = address.Equals(".", StringComparison.OrdinalIgnoreCase) ? Environment.MachineName : address.ToString();
 
             return new DirectFormatName(queueName.ToString(), queueType, protocolParsed, addressStr);
