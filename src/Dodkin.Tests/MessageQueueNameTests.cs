@@ -23,4 +23,14 @@ public class MessageQueueNameTests
         Assert.AreEqual(FormatType.Direct, queueName.Format);
         Assert.AreEqual(@$"{Environment.MachineName}\PRIVATE$\simple", queueName.PathName);
     }
+
+    [TestMethod]
+    public void FromFormatName_DirectIpx_QueueName()
+    {
+        var queueName = MessageQueueName.FromFormatName(@"DIRECT=IPX: 00000012:00a0234f7500\MyQueue;JOURNAL");
+
+        Assert.IsNotNull(queueName);
+        Assert.AreEqual(FormatType.Direct, queueName.Format);
+        Assert.AreEqual("MyQueue;JOURNAL", queueName.QueueName);
+    }
 }

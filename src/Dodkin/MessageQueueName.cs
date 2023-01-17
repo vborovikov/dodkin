@@ -59,7 +59,7 @@
         HTTP,
         HTTPS,
         TCP,
-        SPX,
+        IPX,
     }
 
     sealed class DirectFormatName : MessageQueueName
