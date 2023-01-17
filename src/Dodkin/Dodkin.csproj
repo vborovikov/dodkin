@@ -4,26 +4,26 @@
     <TargetFramework>net7.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-	<VersionPrefix>0.1.0</VersionPrefix>
-	<VersionSuffix>beta</VersionSuffix>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionSuffix>beta</VersionSuffix>
   </PropertyGroup>
 
   <PropertyGroup>
-	<PackageId>Dodkin</PackageId>
-	<PackageVersion>$(Version)</PackageVersion>
-	<Authors>Vladislav Borovikov</Authors>
-	<Title>Dodkin MSMQ Wrapper</Title>
-	<Description>Wrapper Library for MSMQ</Description>
-	<Copyright>Copyright © 2023 Vladislav Borovikov</Copyright>
-	<PackageLicenseExpression>MIT</PackageLicenseExpression>
-	<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-	<PackageReadmeFile>README.md</PackageReadmeFile>
-	<PackageProjectUrl>https://github.com/vborovikov/dodkin</PackageProjectUrl>
-	<RepositoryUrl>https://github.com/vborovikov/dodkin</RepositoryUrl>
-	<RepositoryType>git</RepositoryType>
-	<PackageTags>msmq;messaging</PackageTags>
-	<PackageReleaseNotes></PackageReleaseNotes>
+    <PackageId>Dodkin</PackageId>
+    <PackageVersion>$(Version)</PackageVersion>
+    <Authors>Vladislav Borovikov</Authors>
+    <Title>Dodkin MSMQ Wrapper</Title>
+    <Description>Wrapper Library for MSMQ</Description>
+    <Copyright>Copyright © 2023 Vladislav Borovikov</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/vborovikov/dodkin</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/vborovikov/dodkin</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>msmq;messaging</PackageTags>
+    <PackageReleaseNotes></PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

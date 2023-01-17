@@ -19,6 +19,8 @@
 
     public abstract class MessageQueueName
     {
+        public abstract FormatType Format { get; }
+
         public abstract string QueueName { get; }
 
         public abstract QueueType QueueType { get; }
@@ -79,6 +81,8 @@
             this.protocol = protocol;
             this.address = address;
         }
+
+        public override FormatType Format => FormatType.Direct;
 
         public override string QueueName { get; }
 
