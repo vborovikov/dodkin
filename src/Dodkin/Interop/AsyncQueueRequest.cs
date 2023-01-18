@@ -54,7 +54,7 @@
         {
             // create overlapped with callback that sets the task complete source
             var overlapped = new Overlapped { AsyncResult = this };
-            var nativeOverlapped = overlapped.Pack(CompletionCallback);
+            var nativeOverlapped = overlapped.Pack(CompletionCallback, null);
             var freeResources = false;
             try
             {
