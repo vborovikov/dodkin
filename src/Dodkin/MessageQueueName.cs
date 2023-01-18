@@ -95,7 +95,8 @@
                 if (this.QueueType == QueueType.Private)
                     return $@"DIRECT={this.protocol}:{this.address}\PRIVATE$\{this.QueueName}";
 
-                return $@"DIRECT={this.protocol}:{this.address}\{this.QueueName}";
+                var separator = this.protocol == ComputerAddressProtocol.HTTP || this.protocol == ComputerAddressProtocol.HTTPS ? '/' : '\\';
+                return $"DIRECT={this.protocol}:{this.address}{separator}{this.QueueName}";
             }
         }
 
@@ -105,6 +106,9 @@
             {
                 if (this.QueueType == QueueType.Private)
                     return $@"{this.address}\PRIVATE$\{this.QueueName}";
+
+                if (this.protocol == ComputerAddressProtocol.HTTP || this.protocol == ComputerAddressProtocol.HTTPS)
+                    return $"{this.protocol}:{this.address}/{this.QueueName}";
 
                 return $@"{this.address}\{this.QueueName}";
             }
@@ -125,10 +129,18 @@
                 throw new FormatException();
 
             var protocol = formatName[..separatorPos];
-            var address = formatName[(separatorPos + 1)..formatName.IndexOf('\\')];
-            var queueType = formatName.Contains("private$", StringComparison.OrdinalIgnoreCase) ? QueueType.Private :
-                formatName.Contains("system$", StringComparison.OrdinalIgnoreCase) ? QueueType.System : QueueType.Public;
-            var queueName = formatName[(formatName.LastIndexOfAny("\\/") + 1)..];
+            var namePos = formatName.LastIndexOfAny("\\/");
+            if (namePos < 0)
+                throw new FormatException();
+            var address = formatName[(separatorPos + 1)..namePos];
+            var queueName = formatName[(namePos + 1)..];
+            
+            var queueType = address.EndsWith("private$", StringComparison.OrdinalIgnoreCase) ? QueueType.Private :
+                queueName.StartsWith("system$", StringComparison.OrdinalIgnoreCase) ? QueueType.System : QueueType.Public;
+            if (queueType == QueueType.Private)
+            {
+                address = address[..^9];
+            }
 
             var protocolParsed = Enum.Parse<ComputerAddressProtocol>(protocol, ignoreCase: true);
             var addressStr = address.Equals(".", StringComparison.OrdinalIgnoreCase) ? Environment.MachineName : address.ToString();
