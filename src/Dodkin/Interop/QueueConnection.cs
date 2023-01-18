@@ -50,7 +50,8 @@
 
             while (true)
             {
-                var handle = this.CanRead ? this.ReadHandle : this.WriteHandle;
+                var handle = this.CanRead ? this.ReadHandle : this.CanWrite ? this.WriteHandle :
+                    throw new MessageQueueException(MQ.HR.ERROR_QUEUE_NOT_ACTIVE);
                 if (!handle.IsInvalid)
                 {
                     lock (this.syncRoot)
@@ -58,7 +59,7 @@
                         if (this.formatNameValid)
                             break;
 
-                        var formatNameBuilder = new StringBuilder();
+                        var formatNameBuilder = new StringBuilder(124);
                         var formatNameLength = formatNameBuilder.Capacity;
 
                         var hr = MQ.HandleToFormatName(handle, formatNameBuilder, ref formatNameLength);
@@ -70,10 +71,7 @@
 
                         if (!MQ.IsStaleHandle(hr))
                         {
-                            if (MQ.IsFatalError(hr))
-                            {
-                                throw new MessageQueueException(hr);
-                            }
+                            MessageQueueException.ThrowOnError(hr);
 
                             formatNameBuilder.Length = formatNameLength - 1;
                             this.queueName = MessageQueueName.FromFormatName(formatNameBuilder.ToString());

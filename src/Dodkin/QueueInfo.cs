@@ -13,10 +13,17 @@
     {
         private readonly QueueProperties properties;
 
+        public QueueInfo()
+        {
+            this.properties = new QueueProperties();
+        }
+
         internal QueueInfo(QueueProperties properties)
         {
             this.properties = properties;
         }
+
+        internal QueueProperties Properties => this.properties;
 
         public Guid Instance => this.properties.GetValue<Guid>(MQ.PROPID.Q.INSTANCE);
 
@@ -104,6 +111,11 @@
         public string AdsPath
         {
             get => this.properties.GetValue<string>(MQ.PROPID.Q.ADS_PATH);
+        }
+
+        public void Dispose()
+        {
+            this.properties.Dispose();
         }
     }
 }
