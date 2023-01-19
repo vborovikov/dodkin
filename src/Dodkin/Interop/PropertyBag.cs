@@ -282,6 +282,8 @@ namespace Dodkin.Interop
                 var bufferLength = GetMaxByteCount(value.Length);
                 var buffer = byteArray is not null && byteArray.Length >= bufferLength ? byteArray : new byte[bufferLength];
                 Encoding.Unicode.GetBytes(value, buffer);
+                buffer[bufferLength - 1] = 0;
+
                 return buffer;
             }
 
