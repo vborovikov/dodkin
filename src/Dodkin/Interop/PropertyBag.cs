@@ -138,10 +138,7 @@ namespace Dodkin.Interop
                 };
             }
 
-            public override void Import(in MQPROPVARIANT variant, MQ.HR status)
-            {
-                System.Diagnostics.Debug.WriteLine($"Import ByteArray: {status} Length={(this.Box.Value is byte[] arr ? arr.Length : "null")}");
-            }
+            public override void Import(in MQPROPVARIANT variant, MQ.HR status) { }
 
             public override void Adjust(int size)
             {
@@ -573,7 +570,6 @@ namespace Dodkin.Interop
         protected void Clear(int propertyId)
         {
             ref var property = ref this.properties[propertyId - this.baseId];
-            //this.properties[propertyId - this.baseId] = null!;
             if (property is not null)
             {
                 property = null;
