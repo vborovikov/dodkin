@@ -27,22 +27,22 @@
 
         public Message Peek(MessageProperty properties = MessageProperty.All, TimeSpan? timeout = null, QueueTransaction? transaction = null)
         {
-            return Receive(QueueCursorHandle.None, ReadAction.PeekCurrent, properties, timeout, transaction);
+            return Receive(QueueCursorHandle.None, ReceiveAction.PeekCurrent, properties, timeout, transaction);
         }
 
         public Task<Message> PeekAsync(MessageProperty properties, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
         {
-            return ReceiveAsync(QueueCursorHandle.None, ReadAction.PeekCurrent, properties, timeout, cancellationToken);
+            return ReceiveAsync(QueueCursorHandle.None, ReceiveAction.PeekCurrent, properties, timeout, cancellationToken);
         }
 
         public Message Read(MessageProperty properties = MessageProperty.All, TimeSpan? timeout = null, QueueTransaction? transaction = null)
         {
-            return Receive(QueueCursorHandle.None, ReadAction.Receive, properties, timeout, transaction);
+            return Receive(QueueCursorHandle.None, ReceiveAction.Receive, properties, timeout, transaction);
         }
 
         public Task<Message> ReadAsync(MessageProperty properties, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
         {
-            return ReceiveAsync(QueueCursorHandle.None, ReadAction.Receive, properties, timeout, cancellationToken);
+            return ReceiveAsync(QueueCursorHandle.None, ReceiveAction.Receive, properties, timeout, cancellationToken);
         }
 
         public async Task<Message> ReadAsync(MessageId correlationId, MessageProperty properties, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
@@ -51,13 +51,13 @@
             using var peekProperties = new MessageProperties(MessageProperty.CorrelationId);
             using var packedProperties = peekProperties.Pack();
 
-            for (var msg = await ReceiveAsync(cursorHandle, ReadAction.PeekCurrent, packedProperties, false, timeout, cancellationToken);
+            for (var msg = await ReceiveAsync(cursorHandle, ReceiveAction.PeekCurrent, packedProperties, false, timeout, cancellationToken);
                 !msg.IsEmpty;
-                msg = await ReceiveAsync(cursorHandle, ReadAction.PeekNext, packedProperties, false, timeout, cancellationToken))
+                msg = await ReceiveAsync(cursorHandle, ReceiveAction.PeekNext, packedProperties, false, timeout, cancellationToken))
             {
                 if (msg.CorrelationId == correlationId)
                 {
-                    return await ReceiveAsync(cursorHandle, ReadAction.Receive, 
+                    return await ReceiveAsync(cursorHandle, ReceiveAction.Receive, 
                         new MessageProperties(properties).Pack(), true, timeout, cancellationToken);
                 }
             }
@@ -65,13 +65,13 @@
             return default;
         }
 
-        internal Task<Message> ReceiveAsync(QueueCursorHandle cursorHandle, ReadAction action, MessageProperty properties,
+        internal Task<Message> ReceiveAsync(QueueCursorHandle cursorHandle, ReceiveAction action, MessageProperty properties,
             TimeSpan? timeout, CancellationToken cancellationToken)
         {
             return ReceiveAsync(cursorHandle, action, new MessageProperties(properties).Pack(), true, timeout, cancellationToken);
         }
 
-        private Task<Message> ReceiveAsync(QueueCursorHandle cursorHandle, ReadAction action, 
+        private Task<Message> ReceiveAsync(QueueCursorHandle cursorHandle, ReceiveAction action, 
             MessageProperties.Package properties, bool disposeProperties,
             TimeSpan? timeout, CancellationToken cancellationToken)
         {
@@ -85,7 +85,7 @@
             return ar.BeginRead();
         }
 
-        internal unsafe Message Receive(QueueCursorHandle cursor, ReadAction action, MessageProperty properties, TimeSpan? timeout, QueueTransaction? transaction)
+        internal unsafe Message Receive(QueueCursorHandle cursor, ReceiveAction action, MessageProperty properties, TimeSpan? timeout, QueueTransaction? transaction)
         {
             using var packedProperties = new MessageProperties(properties).Pack();
             while (true)

@@ -1,21 +1,64 @@
 ﻿namespace Dodkin.Interop;
 
-using System.Reflection;
 using System.Runtime.InteropServices;
 
-enum HResult : uint
+/// <summary>
+/// Specifies how the message is read in the queue.
+/// </summary>
+enum ReceiveAction : uint
 {
-    S_OK            = 0x00000000,
-    E_ABORT         = 0x80004004,
-    E_ACCESSDENIED  = 0x80070005,
-    E_FAIL          = 0x80004005,
-    E_HANDLE        = 0x80070006,
-    E_INVALIDARG    = 0x80070057,
-    E_NOINTERFACE   = 0x80004002,
-    E_NOTIMPL       = 0x80004001,
-    E_OUTOFMEMORY   = 0x8007000E,
-    E_POINTER       = 0x80004003,
-    E_UNEXPECTED    = 0x8000FFFF,
+    /// <summary>
+    /// Reads the message at the current cursor location and removes it from the queue.
+    /// </summary>
+    Receive = 0x00000000,
+
+    /// <summary>
+    /// Reads the message at the current cursor location but does not remove it from the queue.
+    /// The cursor remains pointing at the current message.
+    /// </summary>
+    PeekCurrent = 0x80000000,
+
+    /// <summary>
+    /// Reads the next message in the queue (skipping the message at the current cursor location)
+    /// but does not remove it from the queue.
+    /// </summary>
+    PeekNext = 0x80000001,
+}
+
+/// <summary>
+/// The action to perform when calling <see cref="MessageQueueReader.Lookup(MessageProperty, long, LookupAction, System.TimeSpan?, QueueTransaction)"/>
+/// </summary>
+enum LookupAction : uint
+{
+    /// <summary>Peek the message with the requested <see cref="Message.LookupId"/></summary>
+    PeekCurrent = 0x40000010,
+
+    /// <summary>Peek the message after <see cref="Message.LookupId"/></summary>
+    PeekNext = 0x40000011,
+
+    /// <summary>Peek the message before <see cref="Message.LookupId"/></summary>
+    PeekPrev = 0x40000012,
+
+    /// <summary>Peek the first message in the queue. <see cref="Message.LookupId"/> must be set to zero</summary>
+    PeekFirst = 0x40000014,
+
+    /// <summary>Peek the last message in the queue. <see cref="Message.LookupId"/> must be set to zero</summary>
+    PeekLast = 0x40000018,
+
+    /// <summary>Receives the message with the requested <see cref="Message.LookupId"/></summary>
+    ReceiveCurrent = 0x40000020,
+
+    /// <summary>Receives the message after <see cref="Message.LookupId"/></summary>
+    ReceiveNext = 0x40000021,
+
+    /// <summary>Receives the message before <see cref="Message.LookupId"/></summary>
+    ReceivePrev = 0x40000022,
+
+    /// <summary>Receives the first message in the queue. <see cref="Message.LookupId"/> must be set to zero</summary>
+    ReceiveFirst = 0x40000024,
+
+    /// <summary>Receives the last message in the queue. <see cref="Message.LookupId"/> must be set to zero</summary>
+    ReceiveLast = 0x40000028,
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -39,16 +82,16 @@ class MQPROPS
 
 enum VarType : ushort
 {
-    None        = 0,
-    Null        = 1,
-    Byte        = 17,
-    UShort      = 18,
-    UInt        = 19,
-    ULong       = 21,
-    AnsiString  = 30,
-    String      = 31,
-    Guid        = 72,
-    ByteArray   = Byte | 0x1000,
+    None = 0,
+    Null = 1,
+    Byte = 17,
+    UShort = 18,
+    UInt = 19,
+    ULong = 21,
+    AnsiString = 30,
+    String = 31,
+    Guid = 72,
+    ByteArray = Byte | 0x1000,
     StringArray = String | 0x1000,
 }
 

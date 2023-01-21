@@ -29,7 +29,7 @@
         {
         }
 
-        public ReadAction Action { get; init; }
+        public ReceiveAction Action { get; init; }
 
         public TimeSpan? Timeout { get; init; }
 
@@ -69,12 +69,12 @@
                     {
                         // successfully completed synchronously but no enough memory
 
-                        if (readAction == ReadAction.PeekNext)
+                        if (readAction == ReceiveAction.PeekNext)
                         {
                             // Need to special-case retrying PeekNext after a buffer overflow 
                             // by using PeekCurrent on retries since otherwise MSMQ will
                             // advance the cursor, skipping messages
-                            readAction = ReadAction.PeekCurrent;
+                            readAction = ReceiveAction.PeekCurrent;
                         }
 
                         this.packedProperties.Adjust(result);
@@ -119,7 +119,7 @@
                     if (MQ.IsBufferOverflow(result))
                     {
                         this.packedProperties.Adjust(result);
-                        var readAction = this.Action == ReadAction.PeekNext ? ReadAction.PeekCurrent : this.Action;
+                        var readAction = this.Action == ReceiveAction.PeekNext ? ReceiveAction.PeekCurrent : this.Action;
                         result = MQ.ReceiveMessage(this.connection.ReadHandle, MQ.GetTimeout(this.Timeout), readAction,
                             this.packedProperties, pOverlap, null!, this.cursor, IntPtr.Zero);
                         if (result == MQ.HR.INFORMATION_OPERATION_PENDING)

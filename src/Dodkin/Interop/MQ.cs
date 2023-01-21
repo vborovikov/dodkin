@@ -63,7 +63,7 @@ namespace Dodkin.Interop
         public unsafe static extern HR ReceiveMessage(
             QueueHandle handle,
             uint timeout,
-            ReadAction action,
+            ReceiveAction action,
             MQPROPS properties,
             NativeOverlapped* overlapped,
             ReceiveCallback? receiveCallback,
@@ -74,7 +74,7 @@ namespace Dodkin.Interop
         public unsafe static extern HR ReceiveMessage(
             QueueHandle handle,
             uint timeout,
-            ReadAction action,
+            ReceiveAction action,
             MQPROPS properties,
             NativeOverlapped* overlapped,
             ReceiveCallback? receiveCallback,

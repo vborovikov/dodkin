@@ -2,6 +2,161 @@
 {
     using Interop;
 
+    /// <summary>
+    /// Specifies the priority of the message.
+    /// </summary>
+    public enum MessagePriority : byte
+    {
+        Lowest = 0,
+        VeryLow = 1,
+        Low = 2,
+        Normal = 3,
+        AboveNormal = 4,
+        High = 5,
+        VeryHigh = 6,
+        Highest = 7,
+    }
+
+    /// <summary>
+    /// Specifies how Message Queuing delivers the message to the queue.
+    /// </summary>
+    public enum MessageDelivery : byte
+    {
+        /// <summary>
+        /// The default. The message stays in volatile memory along its entire route until it is received.
+        /// The message is not recovered if the computer where the message resides is rebooted. 
+        /// An express message delivered to a queue on a virtual server in a cluster will be lost
+        /// if the virtual server fails over before the message is received.
+        /// </summary>
+        Express = 0,
+
+        /// <summary>
+        /// In every hop along its route, the message is stored locally on disk until it is forwarded to the next computer.
+        /// This guarantees delivery even in case of a computer crash. When the message is placed in the destination queue,
+        /// it is written to disk in a memory-mapped file.
+        /// </summary>
+        Recoverable = 1,
+    }
+
+    /// <summary>
+    /// Specifies whether Message Queuing stores copies of the message as it is routed to the destination queue.
+    /// </summary>
+    [Flags]
+    public enum MessageJournaling : byte
+    {
+        /// <summary>
+        /// The default. Source journaling is disabled. 
+        /// Message Queuing does not store copies of the message in the computer journal on success
+        /// nor in the applicable dead-letter queue on failure.
+        /// </summary>
+        None = 0,
+
+        /// <summary>Negative source journaling is requested. 
+        /// The message is stored in the applicable dead-letter queue on failure,
+        /// but no copy is stored in the computer journal on success.</summary>
+        DeadLetter = 1,
+
+        /// <summary>
+        /// Positive source journaling is requested. 
+        /// A copy of the message is stored in the computer journal on the computer
+        /// if the message was successfully delivered to the next computer, 
+        /// but no copy is stored in the applicable dead-letter queue on failure.
+        /// </summary>
+        Journal = 2,
+    }
+
+    /// <summary>
+    /// Specifies the type of sender identifier.
+    /// </summary>
+    public enum MessageSenderIdType : uint
+    {
+        /// <summary>
+        /// No identifier is attached to the message.
+        /// </summary>
+        None = 0,
+
+        /// <summary>
+        /// The default. <see cref="Message.SenderId"/> contains the security identifier (SID) of the user sending the message.
+        /// </summary>
+        Sid = 1,
+    }
+
+    /// <summary>
+    /// Indicates the format of the message body.
+    /// </summary>
+    public enum MessageBodyType : uint
+    {
+        /// <summary>
+        /// Default. Note that the Message Queuing COM implementation treats this value as an array of bytes.
+        /// </summary>
+        Default = 0,
+
+        /// <summary>
+        /// A variable-size, NULL-terminated ANSI string.
+        /// </summary>
+        AnsiString = VarType.AnsiString,
+
+        /// <summary>
+        /// A variable-size, NULL-terminated Unicode string.
+        /// </summary>
+        UnicodeString = VarType.String,
+
+        /// <summary>
+        /// An array of bytes.
+        /// </summary>
+        ByteArray = VarType.ByteArray,
+    }
+
+    /// <summary>
+    /// Specifies the type of acknowledgment messages that Message Queuing will post 
+    /// (in the administration queue) when acknowledgments are requested.
+    /// </summary>
+    [Flags]
+    public enum MessageAcknowledgment : byte
+    {
+        /// <summary>
+        /// The default. No acknowledgment messages (positive or negative) are posted.
+        /// </summary>
+        None = 0,
+        /// <summary>
+        /// The positive arrival flag.
+        /// </summary>
+        PositiveArrival = 1,
+        /// <summary>
+        /// The positive receive flag
+        /// </summary>
+        PositiveReceive = 2,
+        /// <summary>
+        /// The negative arrival flag.
+        /// </summary>
+        NegativeArrival = 4,
+        /// <summary>
+        /// The negative receive flag.
+        /// </summary>
+        NegativeReceive = 8,
+        /// <summary>
+        /// Posts a negative acknowledgment when the message cannot reach the queue.
+        /// </summary>
+        NackReachQueue = NegativeArrival,
+        /// <summary>
+        /// Posts a positive or negative acknowledgment depending on whether or not the message reaches the queue.
+        /// </summary>
+        FullReachQueue = NegativeArrival | PositiveArrival,
+        /// <summary>
+        /// Posts a negative acknowledgment when the message cannot be retrieved from the queue 
+        /// before the message's time-to-be-received timer expires.
+        /// </summary>
+        NackReceive = NegativeReceive | NegativeArrival,
+        /// <summary>
+        /// Posts a positive or negative acknowledgment depending on whether or not the message
+        /// is retrieved from the queue before its time-to-be-received timer expires.
+        /// </summary>
+        FullReceive = PositiveReceive | NegativeReceive,
+    }
+
+    /// <summary>
+    /// Describes a set of message properties.
+    /// </summary>
     public readonly struct Message
     {
         private readonly MessageProperties properties;
@@ -32,7 +187,7 @@
 
         public bool IsEmpty => this.properties is null;
 
-        public MessageClass Class => (MessageClass)this.properties.GetValue<ushort>(MQ.PROPID.M.CLASS);
+        public MessageClass Class => new(this.properties.GetValue<ushort>(MQ.PROPID.M.CLASS));
 
         public MessageId Id => this.properties.GetValue<MessageId>(MQ.PROPID.M.MSGID);
 
@@ -42,27 +197,27 @@
             set => this.properties.SetValue(MQ.PROPID.M.CORRELATIONID, value);
         }
 
-        public Priority Priority
+        public MessagePriority Priority
         {
-            get => (Priority)this.properties.GetValue<byte>(MQ.PROPID.M.PRIORITY);
+            get => (MessagePriority)this.properties.GetValue<byte>(MQ.PROPID.M.PRIORITY);
             set => this.properties.SetValue(MQ.PROPID.M.PRIORITY, (byte)value);
         }
 
-        public Delivery Delivery
+        public MessageDelivery Delivery
         {
-            get => (Delivery)this.properties.GetValue<byte>(MQ.PROPID.M.DELIVERY);
+            get => (MessageDelivery)this.properties.GetValue<byte>(MQ.PROPID.M.DELIVERY);
             set => this.properties.SetValue(MQ.PROPID.M.DELIVERY, (byte)value);
         }
 
-        public AcknowledgmentType Acknowledgment
+        public MessageAcknowledgment Acknowledgment
         {
-            get => (AcknowledgmentType)this.properties.GetValue<byte>(MQ.PROPID.M.ACKNOWLEDGE);
+            get => (MessageAcknowledgment)this.properties.GetValue<byte>(MQ.PROPID.M.ACKNOWLEDGE);
             set => this.properties.SetValue(MQ.PROPID.M.ACKNOWLEDGE, (byte)value);
         }
 
-        public Journal Journal
+        public MessageJournaling Journal
         {
-            get => (Journal)this.properties.GetValue<byte>(MQ.PROPID.M.JOURNAL);
+            get => (MessageJournaling)this.properties.GetValue<byte>(MQ.PROPID.M.JOURNAL);
             set => this.properties.SetValue(MQ.PROPID.M.JOURNAL, (byte)value);
         }
 
@@ -104,9 +259,9 @@
             set => this.properties.SetString(MQ.PROPID.M.ADMIN_QUEUE, MQ.PROPID.M.ADMIN_QUEUE_LEN, value);
         }
 
-        public SenderIdType SenderIdType
+        public MessageSenderIdType SenderIdType
         {
-            get => (SenderIdType)this.properties.GetValue<uint>(MQ.PROPID.M.SENDERID_TYPE);
+            get => (MessageSenderIdType)this.properties.GetValue<uint>(MQ.PROPID.M.SENDERID_TYPE);
             set => this.properties.SetValue(MQ.PROPID.M.SENDERID_TYPE, (uint)value);
         }
 
@@ -124,9 +279,9 @@
 
         public ReadOnlySpan<byte> Extension => this.properties.GetArray(MQ.PROPID.M.EXTENSION, MQ.PROPID.M.EXTENSION_LEN);
 
-        public BodyType BodyType
+        public MessageBodyType BodyType
         {
-            get => (BodyType)this.properties.GetValue<uint>(MQ.PROPID.M.BODY_TYPE);
+            get => (MessageBodyType)this.properties.GetValue<uint>(MQ.PROPID.M.BODY_TYPE);
             set => this.properties.SetValue(MQ.PROPID.M.BODY_TYPE, (uint)value);
         }
 

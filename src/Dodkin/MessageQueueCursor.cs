@@ -23,32 +23,32 @@
 
         public Message Peek(MessageProperty properties = MessageProperty.All, TimeSpan? timeout = null, QueueTransaction? transaction = null)
         {
-            return this.reader.Receive(this.cursorHandle, ReadAction.PeekCurrent, properties, timeout, transaction);
+            return this.reader.Receive(this.cursorHandle, ReceiveAction.PeekCurrent, properties, timeout, transaction);
         }
 
         public Task<Message> PeekAsync(MessageProperty properties, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
         {
-            return this.reader.ReceiveAsync(this.cursorHandle, ReadAction.PeekCurrent, properties, timeout, cancellationToken);
+            return this.reader.ReceiveAsync(this.cursorHandle, ReceiveAction.PeekCurrent, properties, timeout, cancellationToken);
         }
 
         public Message PeekNext(MessageProperty properties = MessageProperty.All, TimeSpan? timeout = null, QueueTransaction? transaction = null)
         {
-            return this.reader.Receive(this.cursorHandle, ReadAction.PeekNext, properties, timeout, transaction);
+            return this.reader.Receive(this.cursorHandle, ReceiveAction.PeekNext, properties, timeout, transaction);
         }
 
         public Task<Message> PeekNextAsync(MessageProperty properties, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
         {
-            return this.reader.ReceiveAsync(this.cursorHandle, ReadAction.PeekNext, properties, timeout, cancellationToken);
+            return this.reader.ReceiveAsync(this.cursorHandle, ReceiveAction.PeekNext, properties, timeout, cancellationToken);
         }
 
         public Message Read(MessageProperty properties = MessageProperty.All, TimeSpan? timeout = null, QueueTransaction? transaction = null)
         {
-            return this.reader.Receive(this.cursorHandle, ReadAction.Receive, properties, timeout, transaction);
+            return this.reader.Receive(this.cursorHandle, ReceiveAction.Receive, properties, timeout, transaction);
         }
 
         public Task<Message> ReadAsync(MessageProperty properties, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
         {
-            return this.reader.ReceiveAsync(this.cursorHandle, ReadAction.Receive, properties, timeout, cancellationToken);
+            return this.reader.ReceiveAsync(this.cursorHandle, ReceiveAction.Receive, properties, timeout, cancellationToken);
         }
     }
 }
