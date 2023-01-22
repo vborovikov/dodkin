@@ -3,6 +3,62 @@
     using System;
     using System.Text;
 
+    /// <summary>
+    /// Specifies how the application accesses the queue (peek, send, or receive).
+    /// </summary>
+    [Flags]
+    public enum QueueAccessMode
+    {
+        /// <summary>
+        /// Messages can be retrieved (read and removed) from the queue, peeked at, or purged.
+        /// </summary>
+        Receive = 1,
+
+        /// <summary>
+        /// Messages can only be sent to the queue. A subqueue cannot be opened using this access mode.
+        /// </summary>
+        Send = 2,
+
+        /// <summary>
+        /// Can be used only with a subqueue. Requires the user to have peek permission for the queue.
+        /// </summary>
+        Move = 4,
+
+        /// <summary>
+        /// Messages can only be looked at. They cannot be removed from the queue.
+        /// </summary>
+        Peek = 32,
+
+        /// <summary>
+        /// Used to access messages in a local outgoing queue.
+        /// </summary>
+        Admin = 128,
+    }
+
+    /// <summary>
+    /// Specifies how the queue will be shared.
+    /// </summary>
+    public enum QueueShareMode
+    {
+        /// <summary>
+        /// Default. The queue is available to everyone. 
+        /// This setting must be used if the access mode is set to <see cref="QueueAccessMode.Send"/>.
+        /// </summary>
+        Shared = 0,
+
+        /// <summary>
+        /// Limits those who can receive messages from the queue to this process.
+        /// Once a process opens a queue with this share mode and with the access mode set to <see cref="QueueAccessMode.Receive"/>,
+        /// no one else, including the process that opened the queue, can open it again to peek or receive messages
+        /// (this includes attempting to open the queue with multiple threads within the same process)
+        /// until the original caller closes the queue.
+        /// </summary>
+        ExclusiveReceive = 1,
+    }
+
+    /// <summary>
+    /// Manages the queue connection.
+    /// </summary>
     class QueueConnection : IDisposable
     {
         private MessageQueueName queueName;
@@ -25,11 +81,6 @@
         {
             this.queueName = queueName;
             this.shareMode = shareMode;
-
-            // For each accessMode, corresponding QueueAccessModeHolder is a singleton.
-            // Call factory method to return existing holder for this access mode, 
-            // or make a new one if noone used this access mode before.
-            //
             this.accessMode = accessMode;
         }
 
