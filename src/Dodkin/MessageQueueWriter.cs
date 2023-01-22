@@ -2,7 +2,9 @@
 {
     using Interop;
 
-    /// <summary>Class that represents a message queue that you can post messages to</summary>
+    /// <summary>
+    /// Represents a message queue opened for sending messages.
+    /// </summary>
     public sealed class MessageQueueWriter : MessageQueue, IMessageQueueWriter
     {
         private readonly QueueConnection cnn;
@@ -12,7 +14,7 @@
             this.cnn = new QueueConnection(queueName, accessMode, shareMode);
         }
 
-        public override string FormatName => this.cnn.FormatName;
+        public override MessageQueueName Name => this.cnn.QueueName;
 
         internal override QueueHandle Handle => this.cnn.WriteHandle;
 

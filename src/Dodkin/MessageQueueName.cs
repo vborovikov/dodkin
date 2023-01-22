@@ -17,6 +17,9 @@
         Machine,
     }
 
+    /// <summary>
+    /// Represents the message queue name, be it either a format name or a path name.
+    /// </summary>
     public abstract class MessageQueueName
     {
         public abstract FormatType Format { get; }

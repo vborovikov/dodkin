@@ -32,7 +32,7 @@ public class MessageQueueTests
 			var factory = new MessageQueueFactory();
 			var reader = factory.CreateReader(MessageQueueName.FromPathName(@".\private$\doesnotexist")) as MessageQueueReader;
 			Assert.IsNotNull(reader);
-			_ = reader.FormatName;
+			_ = reader.Name;
 		}
 		catch (MessageQueueException x)
 		{

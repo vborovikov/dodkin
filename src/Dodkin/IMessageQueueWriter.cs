@@ -1,7 +1,12 @@
 ﻿namespace Dodkin
 {
-    public interface IMessageQueueWriter
+    /// <summary>
+    /// Represents a message queue opened for sending messages.
+    /// </summary>
+    public interface IMessageQueueWriter : IDisposable
     {
+        MessageQueueName Name { get; }
+
         /// <summary>
         /// Asks MSMQ to attempt to deliver a message.
         /// To ensure the message reached the queue you need to check acknowledgement messages sent to the <see cref="Message.AdministrationQueue"/>

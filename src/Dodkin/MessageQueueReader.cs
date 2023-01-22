@@ -2,6 +2,9 @@
 {
     using Interop;
 
+    /// <summary>
+    /// Represents a message queue opened for peeking at or retrieving messages.
+    /// </summary>
     public class MessageQueueReader : MessageQueue, IMessageQueueReader
     {
         private readonly QueueConnection cnn;
@@ -11,7 +14,7 @@
             this.cnn = new QueueConnection(queueName, accessMode, shareMode);
         }
 
-        public override string FormatName => this.cnn.FormatName;
+        public override MessageQueueName Name => this.cnn.QueueName;
 
         internal sealed override QueueHandle Handle => this.cnn.ReadHandle;
 

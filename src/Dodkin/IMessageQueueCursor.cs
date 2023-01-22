@@ -1,5 +1,8 @@
 ﻿namespace Dodkin
 {
+    /// <summary>
+    /// Maintains a specific location in a queue when reading the queue's messages.
+    /// </summary>
     public interface IMessageQueueCursor : IMessageQueueReader
     {
         /// <summary>

@@ -1,7 +1,12 @@
 ﻿namespace Dodkin
 {
-    public interface IMessageQueueReader
+    /// <summary>
+    /// Represents a message queue opened for peeking at or retrieving messages.
+    /// </summary>
+    public interface IMessageQueueReader : IDisposable
     {
+        MessageQueueName Name { get; }
+
         /// <summary>
         /// Reads the message at the current cursor location but does not remove it from the queue.
         /// The cursor remains pointing at the current message.

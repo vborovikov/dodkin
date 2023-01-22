@@ -6,7 +6,7 @@
 
     public abstract class MessageQueue : IDisposable
     {
-        public abstract string FormatName { get; }
+        public abstract MessageQueueName Name { get; }
 
         internal abstract QueueHandle Handle { get; }
 

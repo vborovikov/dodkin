@@ -2,7 +2,9 @@
 {
     using Interop;
 
-    /// <summary>A sub-queue that you can peek and read from, but also move message to.</summary>
+    /// <summary>
+    /// Represents a message subqueue opened for moving messages.
+    /// </summary>
     public sealed class MessageQueueSorter : MessageQueueReader, IMessageQueueSorter
     {
         private readonly QueueConnection moveCnn;

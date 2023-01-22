@@ -62,7 +62,7 @@
     class QueueConnection : IDisposable
     {
         private MessageQueueName queueName;
-        private volatile bool formatNameValid;
+        private volatile bool queueNameValid;
         private readonly QueueShareMode shareMode;
         private readonly QueueAccessMode accessMode;
 
@@ -84,19 +84,18 @@
             this.accessMode = accessMode;
         }
 
-        public string FormatName
+        public MessageQueueName QueueName
         {
             get
             {
-                EnsureFormatName();
-
-                return this.queueName.FormatName;
+                EnsureQueueName();
+                return this.queueName;
             }
         }
 
-        private void EnsureFormatName()
+        private void EnsureQueueName()
         {
-            if (this.formatNameValid)
+            if (this.queueNameValid)
                 return;
 
             while (true)
@@ -107,7 +106,7 @@
                 {
                     lock (this.syncRoot)
                     {
-                        if (this.formatNameValid)
+                        if (this.queueNameValid)
                             break;
 
                         var formatNameBuilder = new StringBuilder(124);
@@ -126,7 +125,7 @@
 
                             formatNameBuilder.Length = formatNameLength - 1;
                             this.queueName = MessageQueueName.FromFormatName(formatNameBuilder.ToString());
-                            this.formatNameValid = true;
+                            this.queueNameValid = true;
 
                             break;
                         }
@@ -383,7 +382,7 @@
         }
     }
 
-    static class QueueConnectionExtensions
+    static class QueueAccessModeExtensions
     {
         public static bool CanRead(this QueueAccessMode accessMode)
         {
