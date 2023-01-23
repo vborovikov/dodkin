@@ -60,7 +60,7 @@
             {
                 if (msg.CorrelationId == correlationId)
                 {
-                    return await ReceiveAsync(cursorHandle, ReceiveAction.Receive, 
+                    return await ReceiveAsync(cursorHandle, ReceiveAction.Receive,
                         new MessageProperties(properties).Pack(), true, timeout, cancellationToken);
                 }
             }
@@ -74,7 +74,7 @@
             return ReceiveAsync(cursorHandle, action, new MessageProperties(properties).Pack(), true, timeout, cancellationToken);
         }
 
-        private Task<Message> ReceiveAsync(QueueCursorHandle cursorHandle, ReceiveAction action, 
+        private Task<Message> ReceiveAsync(QueueCursorHandle cursorHandle, ReceiveAction action,
             MessageProperties.Package properties, bool disposeProperties,
             TimeSpan? timeout, CancellationToken cancellationToken)
         {

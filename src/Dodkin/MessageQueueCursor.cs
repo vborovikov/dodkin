@@ -14,9 +14,7 @@
         {
             ArgumentNullException.ThrowIfNull(reader);
             this.reader = reader;
-
-            MessageQueueException.ThrowOnError(
-                MQ.CreateCursor(reader.Handle, out this.cursorHandle));
+            this.cursorHandle = QueueCursorHandle.Create(this.reader.Handle);
         }
 
         public MessageQueueName Name => this.reader.Name;
