@@ -5,7 +5,6 @@
     /// <summary>The message identifier</summary>
     public readonly struct MessageId : IEquatable<MessageId>
     {
-        internal const int GenericIdSize = 16;
         internal const int Size = 20;
 
         private readonly byte[] bytes;
@@ -47,12 +46,11 @@
         /// <summary>Returns Guid\long </summary>
         public override string ToString()
         {
-            if (IsNullOrEmpty()) return "";
+            if (IsNullOrEmpty())
+                return String.Empty;
 
-            var guidBytes = new byte[GenericIdSize];
-            Array.Copy(this.bytes, guidBytes, GenericIdSize);
-            var id = BitConverter.ToInt32(this.bytes, GenericIdSize);
-            var guid = new Guid(guidBytes);
+            var guid = new Guid(this.bytes.AsSpan(0, 16));
+            var id = BitConverter.ToInt32(this.bytes, 16);
             return $"{guid}\\{id}";
         }
 
