@@ -21,6 +21,7 @@
         /// </summary>
         /// <param name="message">The message to try to send</param>
         /// <param name="transaction">can be NULL for no transaction, a <see cref="QueueTransaction"/>, <see cref="QueueTransaction.SingleMessage"/>, or <see cref="QueueTransaction.DTC"/>.</param>
+        /// <param name="cancellationToken">A cancellation token.</param>
         Task WriteAsync(Message message, QueueTransaction? transaction = null, CancellationToken cancellationToken = default);
     }
 }

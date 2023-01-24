@@ -26,38 +26,68 @@ enum ReceiveAction : uint
 }
 
 /// <summary>
-/// The action to perform when calling <see cref="MessageQueueReader.Lookup(MessageProperty, long, LookupAction, System.TimeSpan?, QueueTransaction)"/>
+/// Specifies how the message is read in the queue.
 /// </summary>
 enum LookupAction : uint
 {
-    /// <summary>Peek the message with the requested <see cref="Message.LookupId"/></summary>
+    /// <summary>
+    /// Peeks at the message specified by <see cref="Message.LookupId"/>
+    /// but does not remove it from the queue.
+    /// </summary>
     PeekCurrent = 0x40000010,
 
-    /// <summary>Peek the message after <see cref="Message.LookupId"/></summary>
+    /// <summary>
+    /// Peeks at the message following the message specified by <see cref="Message.LookupId"/>
+    /// but does not remove it from the queue.
+    /// </summary>
     PeekNext = 0x40000011,
 
-    /// <summary>Peek the message before <see cref="Message.LookupId"/></summary>
+    /// <summary>
+    /// Peeks at the message preceding the message specified by <see cref="Message.LookupId"/>
+    /// but does not remove it from the queue.
+    /// </summary>
     PeekPrev = 0x40000012,
 
-    /// <summary>Peek the first message in the queue. <see cref="Message.LookupId"/> must be set to zero</summary>
+    /// <summary>
+    /// Peeks at the first message in the queue but does not remove it from the queue.
+    /// The <see cref="Message.LookupId"/> parameter must be set to 0.
+    /// </summary>
     PeekFirst = 0x40000014,
 
-    /// <summary>Peek the last message in the queue. <see cref="Message.LookupId"/> must be set to zero</summary>
+    /// <summary>
+    /// Peeks at the last message in the queue but does not remove it from the queue.
+    /// The <see cref="Message.LookupId"/> parameter must be set to 0.
+    /// </summary>
     PeekLast = 0x40000018,
 
-    /// <summary>Receives the message with the requested <see cref="Message.LookupId"/></summary>
+    /// <summary>
+    /// Retrieves the message specified by <see cref="Message.LookupId"/>
+    /// and removes it from the queue.
+    /// </summary>
     ReceiveCurrent = 0x40000020,
 
-    /// <summary>Receives the message after <see cref="Message.LookupId"/></summary>
+    /// <summary>
+    /// Retrieves the message following the message specified by <see cref="Message.LookupId"/>
+    /// and removes it from the queue.
+    /// </summary>
     ReceiveNext = 0x40000021,
 
-    /// <summary>Receives the message before <see cref="Message.LookupId"/></summary>
+    /// <summary>
+    /// Retrieves the message preceding the message specified by <see cref="Message.LookupId"/>
+    /// and removes it from the queue.
+    /// </summary>
     ReceivePrev = 0x40000022,
 
-    /// <summary>Receives the first message in the queue. <see cref="Message.LookupId"/> must be set to zero</summary>
+    /// <summary>
+    /// Retrieves the first message in the queue and removes it from the queue.
+    /// The <see cref="Message.LookupId"/> parameter must be set to 0.
+    /// </summary>
     ReceiveFirst = 0x40000024,
 
-    /// <summary>Receives the last message in the queue. <see cref="Message.LookupId"/> must be set to zero</summary>
+    /// <summary>
+    /// Retrieves the last message in the queue and removes it from the queue.
+    /// The <see cref="Message.LookupId"/> parameter must be set to 0.
+    /// </summary>
     ReceiveLast = 0x40000028,
 }
 

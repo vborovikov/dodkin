@@ -2,7 +2,9 @@
 {
     using System.Threading;
 
-    /// <summary>Bundle request details into a class that is keep in the <see cref="outstandingRequests"/> set during the async call.</summary>
+    /// <summary>
+    /// Represents an asynchronous operation on the message queue.
+    /// </summary>
     class AsyncQueueRequest : IAsyncResult, IDisposable
     {
         private readonly QueueConnection connection;

@@ -72,6 +72,7 @@
         /// <summary>
         /// Reads the message with the given correlation ID at the current cursor location and removes it from the queue.
         /// </summary>
+        /// <param name="reader">The message queue reader object.</param>
         /// <param name="correlationId">The correlation ID.</param>
         /// <param name="properties">The message properties to receive.</param>
         /// <param name="timeout">

@@ -76,7 +76,7 @@
         None = 0,
 
         /// <summary>
-        /// The default. <see cref="Message.SenderId"/> contains the security identifier (SID) of the user sending the message.
+        /// The default. SenderId property contains the security identifier (SID) of the user sending the message.
         /// </summary>
         Sid = 1,
     }
