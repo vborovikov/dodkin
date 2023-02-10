@@ -14,10 +14,38 @@
             this.bytes = id;
         }
 
+        private MessageId(Guid guid, int id)
+        {
+            this.bytes = new byte[Size];
+            guid.TryWriteBytes(this.bytes);
+            BitConverter.TryWriteBytes(this.bytes.AsSpan(16), id);
+        }
+
         public static MessageId Parse(ReadOnlySpan<char> span)
         {
-            //todo: implement parsing methods
-            return default;
+            if (TryParse(span, out var messageId))
+                return messageId;
+
+            throw new FormatException();
+        }
+
+        public static bool TryParse(ReadOnlySpan<char> span, out MessageId messageId)
+        {
+            messageId= default;
+            if (span.IsEmpty)
+                return false;
+
+            var separatorPos = span.IndexOf('\\');
+            if (separatorPos <= 0)
+                return false;
+
+            if (Guid.TryParse(span[..separatorPos], out var guid) && Int32.TryParse(span[(separatorPos + 1)..], out var id))
+            {
+                messageId = new MessageId(guid, id);
+                return true;
+            }
+
+            return false;
         }
 
         public bool TryWriteBytes(Span<byte> destination)

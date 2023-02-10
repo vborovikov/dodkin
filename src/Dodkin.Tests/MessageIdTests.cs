@@ -1,4 +1,5 @@
 ﻿namespace Dodkin.Tests;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using Tools;
 
@@ -22,6 +23,15 @@ public class MessageIdTests
         var msgId2 = new MessageId(NewMessageIdBuffer());
 
         EqualityTests.TestUnequalObjects(msgId1, msgId2);
+    }
+
+    [TestMethod]
+    public void Parse_RandomParsed_Equal()
+    {
+        var msgId = new MessageId(NewMessageIdBuffer());
+        var msgIdParsed = MessageId.Parse(msgId.ToString());
+
+        EqualityTests.TestEqualObjects(msgId, msgIdParsed);
     }
 
     private static byte[] NewMessageIdBuffer()
