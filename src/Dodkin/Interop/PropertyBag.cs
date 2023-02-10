@@ -4,10 +4,32 @@ namespace Dodkin.Interop
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
     using System.Text;
+    using System.Text.Json;
+
+    interface IPropertyBox
+    {
+        /// <summary>
+        /// Gets the property value object.
+        /// </summary>
+        object? Value { get; }
+
+        /// <summary>
+        /// Writes the property value as JSON value.
+        /// </summary>
+        /// <param name="writer">JSON text writer object.</param>
+        void Write(Utf8JsonWriter writer);
+
+        /// <summary>
+        /// Reads the property value from JSON.
+        /// </summary>
+        /// <param name="reader">JSON text reader object.</param>
+        /// <returns>The number of bytes read.</returns>
+        int Read(ref Utf8JsonReader reader);
+    }
 
     abstract class PropertyBag : IDisposable
     {
-        private abstract class PropertyBox
+        private abstract class PropertyBox : IPropertyBox
         {
             private readonly IStrongBox box;
 
@@ -18,13 +40,26 @@ namespace Dodkin.Interop
 
             protected IStrongBox Box => this.box;
 
+            object? IPropertyBox.Value => this.box.Value;
+
             public abstract MQPROPVARIANT Export(ref GCHandle handle);
 
             public abstract void Import(in MQPROPVARIANT variant, MQ.HR status);
 
-            public virtual void Adjust(int size)
+            public virtual void Adjust(int size) { }
+
+            int IPropertyBox.Read(ref Utf8JsonReader reader) => Read(ref reader);
+
+            protected virtual int Read(ref Utf8JsonReader reader)
             {
+                return reader.Read() ? ReadOverride(ref reader) : 0;
             }
+
+            void IPropertyBox.Write(Utf8JsonWriter writer) => WriteOverride(writer);
+
+            protected abstract int ReadOverride(ref Utf8JsonReader reader);
+
+            protected abstract void WriteOverride(Utf8JsonWriter writer);
         }
 
         private abstract class PropertyBox<T> : PropertyBox
@@ -58,6 +93,17 @@ namespace Dodkin.Interop
             {
                 this.Value = variant.bVal;
             }
+
+            protected override int ReadOverride(ref Utf8JsonReader reader)
+            {
+                this.Value = reader.GetByte();
+                return 1;
+            }
+
+            protected override void WriteOverride(Utf8JsonWriter writer)
+            {
+                writer.WriteNumberValue(this.Value);
+            }
         }
 
         private sealed class ShortPropertyBox : StructPropertyBox<ushort>
@@ -74,10 +120,23 @@ namespace Dodkin.Interop
             {
                 this.Value = variant.uiVal;
             }
+
+            protected override int ReadOverride(ref Utf8JsonReader reader)
+            {
+                this.Value = reader.GetUInt16();
+                return 2;
+            }
+
+            protected override void WriteOverride(Utf8JsonWriter writer)
+            {
+                writer.WriteNumberValue(this.Value);
+            }
         }
 
         private sealed class IntPropertyBox : StructPropertyBox<uint>
         {
+            public IntPropertyBox() : this(0u) { }
+
             public IntPropertyBox(uint value) : base(value) { }
 
             public override MQPROPVARIANT Export(ref GCHandle handle) => new()
@@ -89,6 +148,17 @@ namespace Dodkin.Interop
             public override void Import(in MQPROPVARIANT variant, MQ.HR status)
             {
                 this.Value = variant.ulVal;
+            }
+
+            protected override int ReadOverride(ref Utf8JsonReader reader)
+            {
+                this.Value = reader.GetUInt32();
+                return 4;
+            }
+
+            protected override void WriteOverride(Utf8JsonWriter writer)
+            {
+                writer.WriteNumberValue(this.Value);
             }
         }
 
@@ -106,10 +176,23 @@ namespace Dodkin.Interop
             {
                 this.Value = variant.uhVal;
             }
+
+            protected override int ReadOverride(ref Utf8JsonReader reader)
+            {
+                this.Value = reader.GetUInt64();
+                return 8;
+            }
+
+            protected override void WriteOverride(Utf8JsonWriter writer)
+            {
+                writer.WriteNumberValue(this.Value);
+            }
         }
 
         private sealed class ArrayPropertyBox : PropertyBox<byte[]>
         {
+            public ArrayPropertyBox() : this(Array.Empty<byte>()) { }
+
             public ArrayPropertyBox(byte[] buffer) : base(new StrongBox<byte[]>(buffer)) { }
 
             public ReadOnlySpan<byte> GetValue(int length)
@@ -148,6 +231,18 @@ namespace Dodkin.Interop
                     Array.Resize(ref byteArray, size);
                     this.Value = byteArray;
                 }
+            }
+
+            protected override void WriteOverride(Utf8JsonWriter writer)
+            {
+                writer.WriteBase64StringValue(this.Value);
+            }
+
+            protected override int ReadOverride(ref Utf8JsonReader reader)
+            {
+                var arr = reader.GetBytesFromBase64();
+                this.Value = arr;
+                return arr.Length;
             }
         }
 
@@ -214,6 +309,17 @@ namespace Dodkin.Interop
 
             protected override byte[] ToByteArray(MessageId value, byte[]? byteArray) =>
                 value.TryWriteBytes(byteArray) ? byteArray! : value.ToByteArray();
+
+            protected override int ReadOverride(ref Utf8JsonReader reader)
+            {
+                this.Value = MessageId.Parse(reader.GetString());
+                return MessageId.Size;
+            }
+
+            protected override void WriteOverride(Utf8JsonWriter writer)
+            {
+                writer.WriteStringValue(this.Value.ToString());
+            }
         }
 
         private abstract class PointerPropertyBox<T> : BufferPropertyBox<T>
@@ -237,6 +343,8 @@ namespace Dodkin.Interop
 
         private sealed class StringPropertyBox : PointerPropertyBox<string>
         {
+            public StringPropertyBox() : this(String.Empty) { }
+
             public StringPropertyBox(int length) : base(GetMaxByteCount(length)) { }
 
             public StringPropertyBox(string value) : base(value) { }
@@ -271,6 +379,12 @@ namespace Dodkin.Interop
                     byteArray.AsSpan(0, length * 2) :
                     byteArray.AsSpan().TrimEnd((byte)0);
 
+                // trim last zero bytes but keep a zero byte if the remain length is not even
+                if (length <= 0 && bytes.Length > 0 && bytes.Length % 2 != 0)
+                {
+                    bytes = byteArray.AsSpan(0, bytes.Length + 1);
+                }
+
                 return Encoding.Unicode.GetString(bytes);
             }
 
@@ -289,6 +403,19 @@ namespace Dodkin.Interop
 
             private static int GetMaxByteCount(int strLength) =>
                 (strLength * 2) + 1;
+
+            protected override void WriteOverride(Utf8JsonWriter writer)
+            {
+                writer.WriteStringValue(this.Value);
+            }
+
+            protected override int ReadOverride(ref Utf8JsonReader reader)
+            {
+                var str = reader.GetString() ?? string.Empty;
+                this.Value = str;
+                // the length (in Unicode characters) of the string plus the end-of-string character.
+                return str.Length + 1;
+            }
         }
 
         private sealed class GuidPropertyBox : PointerPropertyBox<Guid>
@@ -304,6 +431,17 @@ namespace Dodkin.Interop
 
             protected override byte[] ToByteArray(Guid value, byte[]? byteArray) =>
                 value.TryWriteBytes(byteArray) ? byteArray! : value.ToByteArray();
+
+            protected override int ReadOverride(ref Utf8JsonReader reader)
+            {
+                this.Value = reader.GetGuid();
+                return 16;
+            }
+
+            protected override void WriteOverride(Utf8JsonWriter writer)
+            {
+                writer.WriteStringValue(this.Value);
+            }
         }
 
         private abstract class NativePropertyBox<T> : PropertyBox<T>
@@ -324,6 +462,19 @@ namespace Dodkin.Interop
                 this.Value = Marshal.PtrToStringUni(variant.ptr)!;
                 MQ.FreeMemory(variant.ptr);
             }
+
+            protected override int ReadOverride(ref Utf8JsonReader reader)
+            {
+                var str = reader.GetString() ?? String.Empty;
+                this.Value = str;
+                // the length (in Unicode characters) of the string plus the end-of-string character.
+                return str.Length + 1;
+            }
+
+            protected override void WriteOverride(Utf8JsonWriter writer)
+            {
+                writer.WriteStringValue(this.Value);
+            }
         }
 
         private sealed class StringArrayPropertyBox : NativePropertyBox<string[]>
@@ -339,6 +490,40 @@ namespace Dodkin.Interop
                     MQ.FreeMemory(ptr);
                 }
                 MQ.FreeMemory(variant.caub.pElems);
+            }
+
+            protected override int ReadOverride(ref Utf8JsonReader reader)
+            {
+                if (reader.TokenType != JsonTokenType.StartArray)
+                    return 0;
+
+                var strs = new List<string>();
+                while (reader.Read())
+                {
+                    if (reader.TokenType == JsonTokenType.EndArray)
+                        break;
+
+                    var str = reader.GetString();
+                    if (str is not null)
+                    {
+                        strs.Add(str);
+                    }
+                }
+
+                reader.Read();
+                this.Value = strs.ToArray();
+                
+                return strs.Count;
+            }
+
+            protected override void WriteOverride(Utf8JsonWriter writer)
+            {
+                writer.WriteStartArray();
+                foreach (var str in this.Value)
+                {
+                    writer.WriteStringValue(str);
+                }
+                writer.WriteEndArray();
             }
         }
 
@@ -468,6 +653,8 @@ namespace Dodkin.Interop
             this.dataRef = new MQPROPS();
         }
 
+        public IPropertyBox this[int propertyId] => this.properties[propertyId - this.baseId];
+
         public string GetString(int stringId, int stringLengthId)
         {
             if (this.properties[stringId - this.baseId] is StringPropertyBox stringProp &&
@@ -594,6 +781,12 @@ namespace Dodkin.Interop
             this.count += 2;
         }
 
+        protected void InitEmptyArray(int propertyId, int lengthPropertyId)
+        {
+            Init<ArrayPropertyBox>(propertyId);
+            Init<IntPropertyBox>(lengthPropertyId);
+        }
+
         protected void InitString(int propertyId, int lengthPropertyId, int length = 124)
         {
             if (this.properties[propertyId - this.baseId] is not null ||
@@ -608,6 +801,12 @@ namespace Dodkin.Interop
         }
 
         protected void InitString(int propertyId) => Init<NativeStringPropertyBox>(propertyId);
+
+        protected void InitEmptyString(int propertyId, int lengthPropertyId)
+        {
+            Init<StringPropertyBox>(propertyId);
+            Init<IntPropertyBox>(lengthPropertyId);
+        }
 
         protected void InitStringArray(int propertyId) => Init<StringArrayPropertyBox>(propertyId);
 
@@ -634,56 +833,96 @@ namespace Dodkin.Interop
         }
 
         protected virtual int GetSizePropertyId(int propertyId) => this.baseId - 1;
+
+        //todo: add Write method
+
+        protected bool TryRead(ref Utf8JsonReader reader, int propertyId)
+        {
+            var property = this.properties[propertyId - this.baseId];
+            if (property is null)
+                return false;
+            var size = ((IPropertyBox)property).Read(ref reader);
+            if (size <= 0)
+                return false;
+
+            var sizePropertyId = GetSizePropertyId(propertyId);
+            if (sizePropertyId > MQ.PROPID.M.BASE)
+            {
+                var sizeProperty = this.properties[sizePropertyId - this.baseId];
+                sizeProperty.Import(new MQPROPVARIANT { vt = (ushort)VarType.UInt, ulVal = (uint)size }, MQ.HR.OK);
+            }
+
+            return true;
+        }
     }
 
     sealed class MessageProperties : PropertyBag
     {
-        public MessageProperties(MessageProperty initProperties)
+        public MessageProperties(MessageProperty propertyFlags)
             : base(MQ.PROPID.M.Count, MQ.PROPID.M.BASE + 1)
         {
-            if (initProperties.HasFlag(MessageProperty.MessageId))
+            Init(propertyFlags);
+        }
+
+        private void Init(MessageProperty propertyFlags, bool initEmpty = false)
+        {
+            if (propertyFlags.HasFlag(MessageProperty.MessageId))
             {
                 InitMessageId(MQ.PROPID.M.MSGID);
             }
-            if (initProperties.HasFlag(MessageProperty.CorrelationId))
+            if (propertyFlags.HasFlag(MessageProperty.CorrelationId))
             {
                 InitMessageId(MQ.PROPID.M.CORRELATIONID);
             }
-            if (initProperties.HasFlag(MessageProperty.Body))
+            if (propertyFlags.HasFlag(MessageProperty.Body))
             {
                 InitArray(MQ.PROPID.M.BODY, MQ.PROPID.M.BODY_SIZE);
             }
-            if (initProperties.HasFlag(MessageProperty.Label))
+            if (propertyFlags.HasFlag(MessageProperty.Label))
             {
                 InitString(MQ.PROPID.M.LABEL, MQ.PROPID.M.LABEL_LEN);
             }
-            if (initProperties.HasFlag(MessageProperty.Extension))
+            if (propertyFlags.HasFlag(MessageProperty.Extension))
             {
                 InitArray(MQ.PROPID.M.EXTENSION, MQ.PROPID.M.EXTENSION_LEN);
             }
-            if (initProperties.HasFlag(MessageProperty.RespQueue))
+            if (propertyFlags.HasFlag(MessageProperty.RespQueue))
             {
                 InitString(MQ.PROPID.M.RESP_QUEUE, MQ.PROPID.M.RESP_QUEUE_LEN);
             }
-            if (initProperties.HasFlag(MessageProperty.AdminQueue))
+            if (propertyFlags.HasFlag(MessageProperty.AdminQueue))
             {
                 InitString(MQ.PROPID.M.ADMIN_QUEUE, MQ.PROPID.M.ADMIN_QUEUE_LEN);
             }
-            if (initProperties.HasFlag(MessageProperty.DestQueue))
+            if (propertyFlags.HasFlag(MessageProperty.DestQueue))
             {
                 InitString(MQ.PROPID.M.DEST_QUEUE, MQ.PROPID.M.DEST_QUEUE_LEN);
             }
-            if (initProperties.HasFlag(MessageProperty.XactStatusQueue))
+            if (propertyFlags.HasFlag(MessageProperty.XactStatusQueue))
             {
                 InitString(MQ.PROPID.M.XACT_STATUS_QUEUE, MQ.PROPID.M.XACT_STATUS_QUEUE_LEN);
             }
-            if (initProperties.HasFlag(MessageProperty.DeadLetterQueue))
+            if (propertyFlags.HasFlag(MessageProperty.DeadLetterQueue))
             {
                 InitString(MQ.PROPID.M.DEADLETTER_QUEUE, MQ.PROPID.M.DEADLETTER_QUEUE_LEN);
             }
         }
 
         public static implicit operator Message(MessageProperties properties) => new(properties);
+
+        public IPropertyBox this[MessageProperty propertyFlag] => base[GetPropertyId(propertyFlag)];
+
+        public bool TryRead(ref Utf8JsonReader reader, MessageProperty propertyFlag)
+        {
+            // create the property and potentially the size property
+            Init(propertyFlag, initEmpty: true);
+            var propertyId = GetPropertyId(propertyFlag);
+            if (propertyId <= MQ.PROPID.M.BASE)
+                return false;
+
+            // let it read the JSON
+            return TryRead(ref reader, propertyId);
+        }
 
         protected override int GetSizePropertyId(int propertyId) => propertyId switch
         {
@@ -704,6 +943,63 @@ namespace Dodkin.Interop
             MQ.PROPID.M.SENDER_CERT => MQ.PROPID.M.SENDER_CERT_LEN,
             MQ.PROPID.M.DEST_SYMM_KEY => MQ.PROPID.M.DEST_SYMM_KEY_LEN,
             MQ.PROPID.M.SIGNATURE => MQ.PROPID.M.SIGNATURE_LEN,
+            _ => MQ.PROPID.M.BASE,
+        };
+
+        private static int GetPropertyId(MessageProperty propertyFlag) => propertyFlag switch
+        {
+            MessageProperty.Class => MQ.PROPID.M.CLASS,
+            MessageProperty.MessageId => MQ.PROPID.M.MSGID,
+            MessageProperty.CorrelationId => MQ.PROPID.M.CORRELATIONID,
+            MessageProperty.Priority => MQ.PROPID.M.PRIORITY,
+            MessageProperty.Delivery => MQ.PROPID.M.DELIVERY,
+            MessageProperty.Acknowledge => MQ.PROPID.M.ACKNOWLEDGE,
+            MessageProperty.Journal => MQ.PROPID.M.JOURNAL,
+            MessageProperty.AppApecific => MQ.PROPID.M.APPSPECIFIC,
+            MessageProperty.Body => MQ.PROPID.M.BODY,
+            MessageProperty.Label => MQ.PROPID.M.LABEL,
+            MessageProperty.TimeToReachQueue => MQ.PROPID.M.TIME_TO_REACH_QUEUE,
+            MessageProperty.TimeToBeReceived => MQ.PROPID.M.TIME_TO_BE_RECEIVED,
+            MessageProperty.RespQueue => MQ.PROPID.M.RESP_QUEUE,
+            MessageProperty.AdminQueue => MQ.PROPID.M.ADMIN_QUEUE,
+            MessageProperty.Version => MQ.PROPID.M.VERSION,
+            MessageProperty.SenderId => MQ.PROPID.M.SENDERID,
+            MessageProperty.SenderIdType => MQ.PROPID.M.SENDERID_TYPE,
+            MessageProperty.PrivLevel => MQ.PROPID.M.PRIV_LEVEL,
+            MessageProperty.AuthLevel => MQ.PROPID.M.AUTH_LEVEL,
+            MessageProperty.Authenticated => MQ.PROPID.M.AUTHENTICATED,
+            MessageProperty.HashAlg => MQ.PROPID.M.HASH_ALG,
+            MessageProperty.EncryptionAlg => MQ.PROPID.M.ENCRYPTION_ALG,
+            MessageProperty.SenderCert => MQ.PROPID.M.SENDER_CERT,
+            MessageProperty.SrcMachineId => MQ.PROPID.M.SRC_MACHINE_ID,
+            MessageProperty.SentTime => MQ.PROPID.M.SENTTIME,
+            MessageProperty.ArrivedTime => MQ.PROPID.M.ARRIVEDTIME,
+            MessageProperty.DestQueue => MQ.PROPID.M.DEST_QUEUE,
+            MessageProperty.Extension => MQ.PROPID.M.EXTENSION,
+            MessageProperty.SecurityContext => MQ.PROPID.M.SECURITY_CONTEXT,
+            MessageProperty.ConnectorType => MQ.PROPID.M.CONNECTOR_TYPE,
+            MessageProperty.XactStatusQueue => MQ.PROPID.M.XACT_STATUS_QUEUE,
+            MessageProperty.Trace => MQ.PROPID.M.TRACE,
+            MessageProperty.BodyType => MQ.PROPID.M.BODY_TYPE,
+            MessageProperty.DestSymmKey => MQ.PROPID.M.DEST_SYMM_KEY,
+            MessageProperty.Signature => MQ.PROPID.M.SIGNATURE,
+            MessageProperty.ProvType => MQ.PROPID.M.PROV_TYPE,
+            MessageProperty.ProvName => MQ.PROPID.M.PROV_NAME,
+            MessageProperty.FirstInXact => MQ.PROPID.M.FIRST_IN_XACT,
+            MessageProperty.LastInXact => MQ.PROPID.M.LAST_IN_XACT,
+            MessageProperty.XactId => MQ.PROPID.M.XACTID,
+            MessageProperty.AuthenticatedEx => MQ.PROPID.M.AUTHENTICATED_EX,
+            MessageProperty.RespFormatName => MQ.PROPID.M.RESP_FORMAT_NAME,
+            MessageProperty.DestFormatName => MQ.PROPID.M.DEST_FORMAT_NAME,
+            MessageProperty.LookupId => MQ.PROPID.M.LOOKUPID,
+            MessageProperty.SoapEnvelope => MQ.PROPID.M.SOAP_ENVELOPE,
+            MessageProperty.CompoundMessage => MQ.PROPID.M.COMPOUND_MESSAGE,
+            MessageProperty.SoapHeader => MQ.PROPID.M.SOAP_HEADER,
+            MessageProperty.SoapBody => MQ.PROPID.M.SOAP_BODY,
+            MessageProperty.DeadLetterQueue => MQ.PROPID.M.DEADLETTER_QUEUE,
+            MessageProperty.AbortCount => MQ.PROPID.M.ABORT_COUNT,
+            MessageProperty.MoveCount => MQ.PROPID.M.MOVE_COUNT,
+            MessageProperty.LastMoveTime => MQ.PROPID.M.LAST_MOVE_TIME,
             _ => MQ.PROPID.M.BASE,
         };
     }
@@ -735,7 +1031,7 @@ namespace Dodkin.Interop
     sealed class QueueManagementProperties : PropertyBag
     {
         public QueueManagementProperties()
-            : base(MQ.PROPID.MGMT_QUEUE.Count, MQ.PROPID.MGMT_QUEUE.BASE + 1) 
+            : base(MQ.PROPID.MGMT_QUEUE.Count, MQ.PROPID.MGMT_QUEUE.BASE + 1)
         {
             InitString(MQ.PROPID.MGMT_QUEUE.PATHNAME);
             InitString(MQ.PROPID.MGMT_QUEUE.FORMATNAME);

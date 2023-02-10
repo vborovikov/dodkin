@@ -14,6 +14,12 @@
             this.bytes = id;
         }
 
+        public static MessageId Parse(ReadOnlySpan<char> span)
+        {
+            //todo: implement parsing methods
+            return default;
+        }
+
         public bool TryWriteBytes(Span<byte> destination)
         {
             if (this.bytes == destination)

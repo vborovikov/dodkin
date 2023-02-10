@@ -1,5 +1,6 @@
 ﻿namespace Dodkin
 {
+    using System.Text.Json.Serialization;
     using Interop;
 
     /// <summary>
@@ -157,6 +158,7 @@
     /// <summary>
     /// Describes a set of message properties.
     /// </summary>
+    [JsonConverter(typeof(MessageJsonConverter))]
     public readonly struct Message
     {
         private readonly MessageProperties properties;
