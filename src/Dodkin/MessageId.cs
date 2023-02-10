@@ -7,6 +7,7 @@
     {
         internal const int Size = 20;
 
+        //todo: store guid/id values instead of a byte buffer
         private readonly byte[] bytes;
 
         public MessageId(byte[] id)
@@ -31,7 +32,7 @@
 
         public static bool TryParse(ReadOnlySpan<char> span, out MessageId messageId)
         {
-            messageId= default;
+            messageId = default;
             if (span.IsEmpty)
                 return false;
 
