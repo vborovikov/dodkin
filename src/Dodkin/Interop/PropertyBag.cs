@@ -312,13 +312,21 @@ namespace Dodkin.Interop
 
             protected override int ReadOverride(ref Utf8JsonReader reader)
             {
-                this.Value = MessageId.Parse(reader.GetString());
+                var str = reader.GetString();
+                this.Value = str is not null ? MessageId.Parse(str) : default;
                 return MessageId.Size;
             }
 
             protected override void WriteOverride(Utf8JsonWriter writer)
             {
-                writer.WriteStringValue(this.Value.ToString());
+                if (this.Value.IsNullOrEmpty())
+                {
+                    writer.WriteNullValue();
+                }
+                else
+                {
+                    writer.WriteStringValue(this.Value.ToString());
+                }
             }
         }
 
@@ -512,7 +520,7 @@ namespace Dodkin.Interop
 
                 reader.Read();
                 this.Value = strs.ToArray();
-                
+
                 return strs.Count;
             }
 
