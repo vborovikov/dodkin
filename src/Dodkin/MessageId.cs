@@ -1,25 +1,22 @@
 ﻿namespace Dodkin
 {
-    using System.Collections;
-
     /// <summary>The message identifier</summary>
     public readonly struct MessageId : IEquatable<MessageId>
     {
         internal const int Size = 20;
 
-        //todo: store guid/id values instead of a byte buffer
-        private readonly byte[] bytes;
+        private readonly Guid guid;
+        private readonly uint id;
 
-        public MessageId(byte[] id)
+        public MessageId(ReadOnlySpan<byte> bytes)
+            : this(new Guid(bytes[0..16]), BitConverter.ToUInt32(bytes[16..]))
         {
-            this.bytes = id;
         }
 
-        private MessageId(Guid guid, int id)
+        private MessageId(Guid guid, uint id)
         {
-            this.bytes = new byte[Size];
-            guid.TryWriteBytes(this.bytes);
-            BitConverter.TryWriteBytes(this.bytes.AsSpan(16), id);
+            this.guid = guid;
+            this.id = id;
         }
 
         public static MessageId Parse(ReadOnlySpan<char> span)
@@ -40,7 +37,8 @@
             if (separatorPos <= 0)
                 return false;
 
-            if (Guid.TryParse(span[..separatorPos], out var guid) && Int32.TryParse(span[(separatorPos + 1)..], out var id))
+            if (Guid.TryParse(span[..separatorPos], out var guid) && 
+                UInt32.TryParse(span[(separatorPos + 1)..], out var id))
             {
                 messageId = new MessageId(guid, id);
                 return true;
@@ -51,52 +49,33 @@
 
         public bool TryWriteBytes(Span<byte> destination)
         {
-            if (this.bytes == destination)
-                return true;
-
-            if (this.bytes is null || this.bytes.Length > destination.Length)
+            if (destination.Length < Size || (this.guid == default && this.id == default))
                 return false;
-
-            this.bytes.CopyTo(destination);
-            return true;
+            
+            return this.guid.TryWriteBytes(destination[0..16]) &&
+                BitConverter.TryWriteBytes(destination[16..], this.id);
         }
 
         public byte[] ToByteArray()
         {
-            return this.bytes;
+            var bytes = new byte[Size];
+            TryWriteBytes(bytes);
+            return bytes;
         }
 
-        /// <summary>Is this is null or all zeros?</summary>
-        public bool IsNullOrEmpty()
-        {
-            if (this.bytes == null) return true;
-            for (var i = 0; i < this.bytes.Length; i++)
-            {
-                if (this.bytes[i] != 0)
-                    return false;
-            }
-            return true;
-        }
-
-        /// <summary>Returns Guid\long </summary>
         public override string ToString()
         {
-            if (IsNullOrEmpty())
+            if (this.guid == default && this.id == default)
                 return String.Empty;
 
-            var guid = new Guid(this.bytes.AsSpan(0, 16));
-            var id = BitConverter.ToInt32(this.bytes, 16);
-            return $"{guid}\\{id}";
+            return $"{this.guid}\\{this.id}";
         }
 
-        public override int GetHashCode() =>
-            StructuralComparisons.StructuralEqualityComparer.GetHashCode(this.bytes);
+        public override int GetHashCode() => HashCode.Combine(this.guid, this.id);
 
-        public override bool Equals(object? obj) =>
-            obj is MessageId msgId && Equals(msgId);
+        public override bool Equals(object? obj) => obj is MessageId msgId && Equals(msgId);
 
-        public bool Equals(MessageId other) =>
-            StructuralComparisons.StructuralEqualityComparer.Equals(this.bytes, other.bytes);
+        public bool Equals(MessageId other) => this.guid.Equals(other.guid) && this.id.Equals(other.id);
 
         public static bool operator ==(MessageId left, MessageId right) => left.Equals(right);
 

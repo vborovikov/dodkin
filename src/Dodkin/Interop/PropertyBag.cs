@@ -291,7 +291,7 @@ namespace Dodkin.Interop
 
             protected override void WriteOverride(Utf8JsonWriter writer)
             {
-                if (this.Value.IsNullOrEmpty())
+                if (this.Value == default)
                 {
                     writer.WriteNullValue();
                 }
