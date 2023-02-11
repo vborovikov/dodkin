@@ -924,11 +924,6 @@ namespace Dodkin.Interop
                         var propertyFlag = (MessageProperty)(1ul << i);
                         properties.Init(propertyFlag, initEmpty: true);
                         var propertyId = GetPropertyId(propertyFlag);
-                        if (propertyId <= MQ.PROPID.M.BASE)
-                        {
-                            reader.Read();
-                            break;
-                        }
                         var property = properties[propertyId];
                         if (property is null)
                         {
@@ -936,16 +931,14 @@ namespace Dodkin.Interop
                             break;
                         }
                         var size = property.Read(ref reader);
-                        if (size <= 0)
+                        if (size > 0)
                         {
-                            break;
-                        }
-
-                        var sizePropertyId = properties.GetSizePropertyId(propertyId);
-                        if (sizePropertyId > MQ.PROPID.M.BASE)
-                        {
-                            var sizeProperty = properties[sizePropertyId];
-                            sizeProperty.Import(new MQPROPVARIANT { vt = (ushort)VarType.UInt, ulVal = (uint)size }, MQ.HR.OK);
+                            var sizePropertyId = properties.GetSizePropertyId(propertyId);
+                            if (sizePropertyId > MQ.PROPID.M.BASE)
+                            {
+                                var sizeProperty = properties[sizePropertyId];
+                                sizeProperty.Import(new MQPROPVARIANT { vt = (ushort)VarType.UInt, ulVal = (uint)size }, MQ.HR.OK);
+                            }
                         }
 
                         break;
