@@ -6,30 +6,9 @@ namespace Dodkin.Interop
     using System.Text;
     using System.Text.Json;
 
-    interface IPropertyBox
-    {
-        /// <summary>
-        /// Gets the property value object.
-        /// </summary>
-        object? Value { get; }
-
-        /// <summary>
-        /// Writes the property value as JSON value.
-        /// </summary>
-        /// <param name="writer">JSON text writer object.</param>
-        void Write(Utf8JsonWriter writer);
-
-        /// <summary>
-        /// Reads the property value from JSON.
-        /// </summary>
-        /// <param name="reader">JSON text reader object.</param>
-        /// <returns>The number of bytes read.</returns>
-        int Read(ref Utf8JsonReader reader);
-    }
-
     abstract class PropertyBag : IDisposable
     {
-        private abstract class PropertyBox : IPropertyBox
+        protected abstract class PropertyBox
         {
             private readonly IStrongBox box;
 
@@ -40,22 +19,15 @@ namespace Dodkin.Interop
 
             protected IStrongBox Box => this.box;
 
-            object? IPropertyBox.Value => this.box.Value;
-
             public abstract MQPROPVARIANT Export(ref GCHandle handle);
 
             public abstract void Import(in MQPROPVARIANT variant, MQ.HR status);
 
             public virtual void Adjust(int size) { }
 
-            int IPropertyBox.Read(ref Utf8JsonReader reader) => Read(ref reader);
+            public int Read(ref Utf8JsonReader reader) => reader.Read() ? ReadOverride(ref reader) : 0;
 
-            protected virtual int Read(ref Utf8JsonReader reader)
-            {
-                return reader.Read() ? ReadOverride(ref reader) : 0;
-            }
-
-            void IPropertyBox.Write(Utf8JsonWriter writer) => WriteOverride(writer);
+            public void Write(Utf8JsonWriter writer) => WriteOverride(writer);
 
             protected abstract int ReadOverride(ref Utf8JsonReader reader);
 
@@ -661,7 +633,7 @@ namespace Dodkin.Interop
             this.dataRef = new MQPROPS();
         }
 
-        public IPropertyBox this[int propertyId] => this.properties[propertyId - this.baseId];
+        protected PropertyBox this[int propertyId] => this.properties[propertyId - this.baseId];
 
         public string GetString(int stringId, int stringLengthId)
         {
@@ -778,43 +750,47 @@ namespace Dodkin.Interop
 
         protected void InitArray(int propertyId, int lengthPropertyId, int length = 256)
         {
-            if (this.properties[propertyId - this.baseId] is not null ||
-                this.properties[lengthPropertyId - this.baseId] is not null)
+            if (length <= 0)
             {
-                throw new InvalidOperationException();
+                Init<ArrayPropertyBox>(propertyId);
+                Init<IntPropertyBox>(lengthPropertyId);
             }
+            else
+            {
+                if (this.properties[propertyId - this.baseId] is not null ||
+                    this.properties[lengthPropertyId - this.baseId] is not null)
+                {
+                    throw new InvalidOperationException();
+                }
 
-            this.properties[propertyId - this.baseId] = new ArrayPropertyBox(new byte[length]);
-            this.properties[lengthPropertyId - this.baseId] = new IntPropertyBox((uint)length);
-            this.count += 2;
-        }
-
-        protected void InitEmptyArray(int propertyId, int lengthPropertyId)
-        {
-            Init<ArrayPropertyBox>(propertyId);
-            Init<IntPropertyBox>(lengthPropertyId);
+                this.properties[propertyId - this.baseId] = new ArrayPropertyBox(new byte[length]);
+                this.properties[lengthPropertyId - this.baseId] = new IntPropertyBox((uint)length);
+                this.count += 2;
+            }
         }
 
         protected void InitString(int propertyId, int lengthPropertyId, int length = 124)
         {
-            if (this.properties[propertyId - this.baseId] is not null ||
-                this.properties[lengthPropertyId - this.baseId] is not null)
+            if (length <= 0)
             {
-                throw new InvalidOperationException();
+                Init<StringPropertyBox>(propertyId);
+                Init<IntPropertyBox>(lengthPropertyId);
             }
+            else
+            {
+                if (this.properties[propertyId - this.baseId] is not null ||
+                    this.properties[lengthPropertyId - this.baseId] is not null)
+                {
+                    throw new InvalidOperationException();
+                }
 
-            this.properties[propertyId - this.baseId] = new StringPropertyBox(length);
-            this.properties[lengthPropertyId - this.baseId] = new IntPropertyBox((uint)length);
-            this.count += 2;
+                this.properties[propertyId - this.baseId] = new StringPropertyBox(length);
+                this.properties[lengthPropertyId - this.baseId] = new IntPropertyBox((uint)length);
+                this.count += 2;
+            }
         }
 
         protected void InitString(int propertyId) => Init<NativeStringPropertyBox>(propertyId);
-
-        protected void InitEmptyString(int propertyId, int lengthPropertyId)
-        {
-            Init<StringPropertyBox>(propertyId);
-            Init<IntPropertyBox>(lengthPropertyId);
-        }
 
         protected void InitStringArray(int propertyId) => Init<StringArrayPropertyBox>(propertyId);
 
@@ -841,31 +817,18 @@ namespace Dodkin.Interop
         }
 
         protected virtual int GetSizePropertyId(int propertyId) => this.baseId - 1;
-
-        //todo: add Write method
-
-        protected bool TryRead(ref Utf8JsonReader reader, int propertyId)
-        {
-            var property = this.properties[propertyId - this.baseId];
-            if (property is null)
-                return false;
-            var size = ((IPropertyBox)property).Read(ref reader);
-            if (size <= 0)
-                return false;
-
-            var sizePropertyId = GetSizePropertyId(propertyId);
-            if (sizePropertyId > MQ.PROPID.M.BASE)
-            {
-                var sizeProperty = this.properties[sizePropertyId - this.baseId];
-                sizeProperty.Import(new MQPROPVARIANT { vt = (ushort)VarType.UInt, ulVal = (uint)size }, MQ.HR.OK);
-            }
-
-            return true;
-        }
     }
 
     sealed class MessageProperties : PropertyBag
     {
+        private static readonly string[] propertyNames;
+
+        static MessageProperties()
+        {
+            // all possible flags, except None and All
+            propertyNames = Enum.GetNames<MessageProperty>()[1..^1];
+        }
+
         public MessageProperties(MessageProperty propertyFlags)
             : base(MQ.PROPID.M.Count, MQ.PROPID.M.BASE + 1)
         {
@@ -884,52 +847,116 @@ namespace Dodkin.Interop
             }
             if (propertyFlags.HasFlag(MessageProperty.Body))
             {
-                InitArray(MQ.PROPID.M.BODY, MQ.PROPID.M.BODY_SIZE);
+                InitArray(MQ.PROPID.M.BODY, MQ.PROPID.M.BODY_SIZE, initEmpty ? 0 : 256);
             }
             if (propertyFlags.HasFlag(MessageProperty.Label))
             {
-                InitString(MQ.PROPID.M.LABEL, MQ.PROPID.M.LABEL_LEN);
+                InitString(MQ.PROPID.M.LABEL, MQ.PROPID.M.LABEL_LEN, initEmpty ? 0 : 124);
             }
             if (propertyFlags.HasFlag(MessageProperty.Extension))
             {
-                InitArray(MQ.PROPID.M.EXTENSION, MQ.PROPID.M.EXTENSION_LEN);
+                InitArray(MQ.PROPID.M.EXTENSION, MQ.PROPID.M.EXTENSION_LEN, initEmpty ? 0 : 256);
             }
             if (propertyFlags.HasFlag(MessageProperty.RespQueue))
             {
-                InitString(MQ.PROPID.M.RESP_QUEUE, MQ.PROPID.M.RESP_QUEUE_LEN);
+                InitString(MQ.PROPID.M.RESP_QUEUE, MQ.PROPID.M.RESP_QUEUE_LEN, initEmpty ? 0 : 124);
             }
             if (propertyFlags.HasFlag(MessageProperty.AdminQueue))
             {
-                InitString(MQ.PROPID.M.ADMIN_QUEUE, MQ.PROPID.M.ADMIN_QUEUE_LEN);
+                InitString(MQ.PROPID.M.ADMIN_QUEUE, MQ.PROPID.M.ADMIN_QUEUE_LEN, initEmpty ? 0 : 124);
             }
             if (propertyFlags.HasFlag(MessageProperty.DestQueue))
             {
-                InitString(MQ.PROPID.M.DEST_QUEUE, MQ.PROPID.M.DEST_QUEUE_LEN);
+                InitString(MQ.PROPID.M.DEST_QUEUE, MQ.PROPID.M.DEST_QUEUE_LEN, initEmpty ? 0 : 124);
             }
             if (propertyFlags.HasFlag(MessageProperty.XactStatusQueue))
             {
-                InitString(MQ.PROPID.M.XACT_STATUS_QUEUE, MQ.PROPID.M.XACT_STATUS_QUEUE_LEN);
+                InitString(MQ.PROPID.M.XACT_STATUS_QUEUE, MQ.PROPID.M.XACT_STATUS_QUEUE_LEN, initEmpty ? 0 : 124);
             }
             if (propertyFlags.HasFlag(MessageProperty.DeadLetterQueue))
             {
-                InitString(MQ.PROPID.M.DEADLETTER_QUEUE, MQ.PROPID.M.DEADLETTER_QUEUE_LEN);
+                InitString(MQ.PROPID.M.DEADLETTER_QUEUE, MQ.PROPID.M.DEADLETTER_QUEUE_LEN, initEmpty ? 0 : 124);
             }
         }
 
         public static implicit operator Message(MessageProperties properties) => new(properties);
 
-        public IPropertyBox this[MessageProperty propertyFlag] => base[GetPropertyId(propertyFlag)];
-
-        public bool TryRead(ref Utf8JsonReader reader, MessageProperty propertyFlag)
+        public void Write(Utf8JsonWriter writer, JsonSerializerOptions options)
         {
-            // create the property and potentially the size property
-            Init(propertyFlag, initEmpty: true);
-            var propertyId = GetPropertyId(propertyFlag);
-            if (propertyId <= MQ.PROPID.M.BASE)
-                return false;
+            writer.WriteStartObject();
 
-            // let it read the JSON
-            return TryRead(ref reader, propertyId);
+            var maxPropertyCount = propertyNames.Length;
+            for (var i = 0; i != maxPropertyCount; ++i)
+            {
+                var property = base[GetPropertyId((MessageProperty)(1ul << i))];
+                if (property is not null)
+                {
+                    var propertyName = propertyNames[i];
+                    writer.WritePropertyName(propertyName);
+                    property.Write(writer);
+                }
+            }
+
+            writer.WriteEndObject();
+        }
+
+        public static MessageProperties Read(ref Utf8JsonReader reader, JsonSerializerOptions options)
+        {
+            if (reader.TokenType != JsonTokenType.StartObject)
+                throw new JsonException();
+
+            var properties = new MessageProperties(MessageProperty.None);
+
+            var propertyCount = propertyNames.Length;
+            var propertyIndex = -1;
+            while (reader.Read())
+            {
+                if (reader.TokenType != JsonTokenType.PropertyName)
+                    break;
+
+                // search for a property cycling through list starting from the given index
+                for (var i = (propertyIndex + 1) % propertyCount; i != propertyIndex && i != propertyCount; i = (i + 1) % propertyCount)
+                {
+                    if (reader.ValueTextEquals(propertyNames[i]))
+                    {
+                        propertyIndex = i;
+
+                        var propertyFlag = (MessageProperty)(1ul << i);
+                        properties.Init(propertyFlag, initEmpty: true);
+                        var propertyId = GetPropertyId(propertyFlag);
+                        if (propertyId <= MQ.PROPID.M.BASE)
+                        {
+                            reader.Read();
+                            break;
+                        }
+                        var property = properties[propertyId];
+                        if (property is null)
+                        {
+                            reader.Read();
+                            break;
+                        }
+                        var size = property.Read(ref reader);
+                        if (size <= 0)
+                        {
+                            break;
+                        }
+
+                        var sizePropertyId = properties.GetSizePropertyId(propertyId);
+                        if (sizePropertyId > MQ.PROPID.M.BASE)
+                        {
+                            var sizeProperty = properties[sizePropertyId];
+                            sizeProperty.Import(new MQPROPVARIANT { vt = (ushort)VarType.UInt, ulVal = (uint)size }, MQ.HR.OK);
+                        }
+
+                        break;
+                    }
+                }
+            }
+
+            if (reader.TokenType != JsonTokenType.EndObject)
+                throw new JsonException();
+
+            return properties;
         }
 
         protected override int GetSizePropertyId(int propertyId) => propertyId switch

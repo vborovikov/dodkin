@@ -1,5 +1,6 @@
 ﻿namespace Dodkin
 {
+    using System.Text.Json;
     using System.Text.Json.Serialization;
     using Interop;
 
@@ -161,6 +162,15 @@
     [JsonConverter(typeof(MessageJsonConverter))]
     public readonly struct Message
     {
+        private sealed class MessageJsonConverter : JsonConverter<Message>
+        {
+            public override void Write(Utf8JsonWriter writer, Message value, JsonSerializerOptions options) =>
+                value.Properties.Write(writer, options);
+
+            public override Message Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+                MessageProperties.Read(ref reader, options);
+        }
+
         private readonly MessageProperties properties;
 
         public Message() : this(new MessageProperties(MessageProperty.MessageId))
