@@ -49,7 +49,7 @@
 
         public bool TryWriteBytes(Span<byte> destination)
         {
-            if (destination.Length < Size || (this.guid == default && this.id == default))
+            if (destination.Length < Size)
                 return false;
             
             return this.guid.TryWriteBytes(destination[0..16]) &&
