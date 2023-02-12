@@ -121,22 +121,32 @@
                     if (MQ.IsBufferOverflow(result))
                     {
                         this.packedProperties.Adjust(result);
-                        var readAction = this.Action == ReceiveAction.PeekNext ? ReceiveAction.PeekCurrent : this.Action;
-                        result = MQ.ReceiveMessage(this.connection.ReadHandle, MQ.GetTimeout(this.Timeout), readAction,
-                            this.packedProperties, pOverlap, null!, this.cursor, IntPtr.Zero);
-                        if (result == MQ.HR.INFORMATION_OPERATION_PENDING)
-                        {
-                            freeResources = false;
-                            return;
-                        }
                     }
-                    //todo: check for stale handle error
-                    else if (!TryHandleError(result))
+                    else if (MQ.IsStaleHandle(result))
                     {
-                        this.taskSource.TrySetResult(this.packedProperties.Unpack<MessageProperties>());
+                        //todo: close cursor handle?
+                        this.connection.CloseRead();
+                    }
+                    else
+                    {
+                        if (!TryHandleError(result))
+                        {
+                            // request is completed without errors
+                            this.taskSource.TrySetResult(this.packedProperties.Unpack<MessageProperties>());
+                        }
+                        return;
                     }
 
-                    break; // request is completed
+                    var readAction = this.Action == ReceiveAction.PeekNext ? ReceiveAction.PeekCurrent : this.Action;
+                    result = MQ.ReceiveMessage(this.connection.ReadHandle, MQ.GetTimeout(this.Timeout), readAction,
+                        this.packedProperties, pOverlap, null!, this.cursor, IntPtr.Zero);
+
+                    if (result == MQ.HR.INFORMATION_OPERATION_PENDING)
+                    {
+                        // request is pending again
+                        freeResources = false;
+                        return;
+                    }
                 }
             }
             catch (ObjectDisposedException)
@@ -191,7 +201,6 @@
                 // MSMQ does a hacky trick to return the operation 
                 // result through the completion port.
 
-                // eugenesh Dec 2004. Bug 419155: 
                 // NativeOverlapped.InternalLow returns IntPtr, which is 64 bits on a 64 bit platform.
                 // It contains MSMQ error code, which, when set to an error value, is outside of the int range
                 // Therefore, OverflowException is thrown in checked context. 
