@@ -110,12 +110,11 @@
             return this.taskSource.Task;
         }
 
-        private unsafe void EndRead(MQ.HR hrStatus, NativeOverlapped* pOverlap)
+        private unsafe void EndRead(MQ.HR result, NativeOverlapped* pOverlap)
         {
             var freeResources = true;
             try
             {
-                var result = MQ.GetOverlappedResult(pOverlap);
                 while (true)
                 {
                     if (MQ.IsBufferOverflow(result))
@@ -139,7 +138,7 @@
 
                     var readAction = this.Action == ReceiveAction.PeekNext ? ReceiveAction.PeekCurrent : this.Action;
                     result = MQ.ReceiveMessage(this.connection.ReadHandle, MQ.GetTimeout(this.Timeout), readAction,
-                        this.packedProperties, pOverlap, null!, this.cursor, IntPtr.Zero);
+                        this.packedProperties, pOverlap, null, this.cursor, IntPtr.Zero);
 
                     if (result == MQ.HR.INFORMATION_OPERATION_PENDING)
                     {
@@ -195,26 +194,7 @@
 
         private unsafe void CompletionCallback(uint errorCode, uint numBytes, NativeOverlapped* pOverlap)
         {
-            var hrStatus = MQ.HR.OK;
-            if (errorCode != 0u)
-            {
-                // MSMQ does a hacky trick to return the operation 
-                // result through the completion port.
-
-                // NativeOverlapped.InternalLow returns IntPtr, which is 64 bits on a 64 bit platform.
-                // It contains MSMQ error code, which, when set to an error value, is outside of the int range
-                // Therefore, OverflowException is thrown in checked context. 
-                // However, IntPtr (int) operator ALWAYS runs in checked context on 64 bit platforms.
-                // Therefore, we first cast to long to avoid OverflowException, and then cast to int
-                // in unchecked context 
-                var msmqError = (long)pOverlap->InternalLow;
-                unchecked
-                {
-                    hrStatus = (MQ.HR)msmqError;
-                }
-            }
-
-            EndRead(hrStatus, pOverlap);
+            EndRead(MQ.GetOverlappedResult(pOverlap), pOverlap);
         }
     }
 }
