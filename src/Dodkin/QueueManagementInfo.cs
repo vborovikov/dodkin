@@ -3,7 +3,7 @@
     using System;
     using Interop;
 
-    public readonly struct QueueManagementInfo
+    public readonly struct QueueManagementInfo : IDisposable
     {
         private const string YES = "YES";
         private const string NO = "NO";
@@ -30,6 +30,11 @@
 
         public int SubqueueCount => (int)this.properties.GetValue<uint>(MQ.PROPID.MGMT_QUEUE.SUBQUEUE_COUNT);
         public string[] SubqueueNames => this.properties.GetValue<string[]>(MQ.PROPID.MGMT_QUEUE.SUBQUEUE_NAMES);
+
+        public void Dispose()
+        {
+            this.properties.Dispose();
+        }
 
         private bool? GetBoolean(int propertyId)
         {

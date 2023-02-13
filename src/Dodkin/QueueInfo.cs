@@ -9,7 +9,7 @@
         Body,
     }
 
-    public readonly struct QueueInfo
+    public readonly struct QueueInfo : IDisposable
     {
         private readonly QueueProperties properties;
 

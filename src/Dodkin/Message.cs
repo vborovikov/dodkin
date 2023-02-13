@@ -160,7 +160,7 @@
     /// Describes a set of message properties.
     /// </summary>
     [JsonConverter(typeof(MessageJsonConverter))]
-    public readonly struct Message
+    public readonly struct Message : IDisposable
     {
         private sealed class MessageJsonConverter : JsonConverter<Message>
         {

@@ -23,7 +23,7 @@
         {
             ArgumentNullException.ThrowIfNull(queueName);
 
-            var queueInfo = new QueueInfo
+            using var queueInfo = new QueueInfo
             {
                 PathName = queueName.PathName,
                 IsTransactional = isTransactional,
