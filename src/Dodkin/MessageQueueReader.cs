@@ -78,7 +78,7 @@
             MessageProperties.Package properties, bool disposeProperties,
             TimeSpan? timeout, CancellationToken cancellationToken)
         {
-            var ar = new AsyncQueueRequest(this.cnn, cursorHandle, properties, cancellationToken)
+            var ar = new QueueAsyncRequest(this.cnn, cursorHandle, properties, cancellationToken)
             {
                 Action = action,
                 Timeout = timeout,

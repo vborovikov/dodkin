@@ -5,7 +5,7 @@
     /// <summary>
     /// Represents an asynchronous operation on the message queue.
     /// </summary>
-    class AsyncQueueRequest : IAsyncResult, IDisposable
+    class QueueAsyncRequest : IAsyncResult, IDisposable
     {
         private readonly QueueConnection connection;
         private readonly QueueCursorHandle cursor;
@@ -13,7 +13,7 @@
         private readonly TaskCompletionSource<Message> taskSource;
         private readonly CancellationTokenRegistration cancelReg;
 
-        public AsyncQueueRequest(QueueConnection connection, QueueCursorHandle cursor, MessageProperties.Package packedProperties, CancellationToken cancellationToken)
+        public QueueAsyncRequest(QueueConnection connection, QueueCursorHandle cursor, MessageProperties.Package packedProperties, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(cursor);
 
@@ -26,7 +26,7 @@
             this.cancelReg = cancellationToken.Register(CancelRequest, useSynchronizationContext: false);
         }
 
-        public AsyncQueueRequest(QueueConnection connection, MessageProperties properties, CancellationToken cancellationToken)
+        public QueueAsyncRequest(QueueConnection connection, MessageProperties properties, CancellationToken cancellationToken)
             : this(connection, QueueCursorHandle.None, properties.Pack(), cancellationToken)
         {
         }
