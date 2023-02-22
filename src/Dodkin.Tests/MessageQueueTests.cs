@@ -15,7 +15,7 @@ public class MessageQueueTests
     [AssemblyInitialize]
     public static void AssemblyInit(TestContext context)
     {
-        testQueueName = MessageQueue.TryCreate(testQueueName, maxStorageSize: 1024);
+        testQueueName = MessageQueue.TryCreate(testQueueName);
     }
 
     [AssemblyCleanup]
@@ -27,21 +27,21 @@ public class MessageQueueTests
     [TestMethod]
     public void FormatName_NonExistingQueue_Exception()
     {
-		try
-		{
-			var factory = new MessageQueueFactory();
-			var reader = factory.CreateReader(MessageQueueName.FromPathName(@".\private$\doesnotexist")) as MessageQueueReader;
-			Assert.IsNotNull(reader);
-			_ = reader.Name;
-		}
-		catch (MessageQueueException x)
-		{
-			Assert.AreEqual((uint)MQ.HR.ERROR_QUEUE_NOT_ACTIVE, x.ErrorCode);
+        try
+        {
+            var factory = new MessageQueueFactory();
+            var reader = factory.CreateReader(MessageQueueName.FromPathName(@".\private$\doesnotexist")) as MessageQueueReader;
+            Assert.IsNotNull(reader);
+            _ = reader.Name;
         }
-		catch
-		{
-			Assert.Fail();
-		}
+        catch (MessageQueueException x)
+        {
+            Assert.AreEqual((uint)MQ.HR.ERROR_QUEUE_NOT_ACTIVE, x.ErrorCode);
+        }
+        catch
+        {
+            Assert.Fail();
+        }
     }
 
     [TestMethod]
@@ -139,5 +139,22 @@ public class MessageQueueTests
         Assert.AreNotEqual(0, queueInfo.MessageCount);
 
         MessageQueue.Purge(testQueueName);
+    }
+
+    [TestMethod]
+    public async Task ReadByCorrelationId_FourMessages_Found()
+    {
+        var correlationId = MessageId.Parse($"{Guid.NewGuid()}\\{Random.Shared.Next()}");
+
+        using var writer = new MessageQueueWriter(testQueueName);
+        await writer.WriteAsync(new Message { Label = "First" });
+        await writer.WriteAsync(new Message { Label = "Second" });
+        await writer.WriteAsync(new Message { Label = "Third", CorrelationId = correlationId });
+        await writer.WriteAsync(new Message { Label = "Fourth" });
+
+        using var reader = new MessageQueueReader(testQueueName);
+        var msg = await reader.ReadAsync(correlationId, MessageProperty.Label);
+
+        Assert.AreEqual("Third", msg.Label);
     }
 }
