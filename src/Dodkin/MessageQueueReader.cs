@@ -76,7 +76,7 @@
         private Task<Message> ReceiveAsync(QueueCursorHandle cursorHandle, ReceiveAction action,
             MessageProperties properties, TimeSpan? timeout, CancellationToken cancellationToken)
         {
-            var ar = new QueueAsyncRequest(this.cnn, cursorHandle, properties, cancellationToken)
+            var ar = new QueueReceiveAsyncRequest(this.cnn, cursorHandle, properties, cancellationToken)
             {
                 Action = action,
                 Timeout = timeout,

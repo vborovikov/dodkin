@@ -5,20 +5,15 @@
     /// <summary>
     /// Represents an asynchronous operation on the message queue.
     /// </summary>
-    class QueueAsyncRequest : IAsyncResult, IDisposable
+    abstract class QueueAsyncRequest : IAsyncResult, IDisposable
     {
-        private readonly QueueConnection connection;
-        private readonly QueueCursorHandle cursorHandle;
-        private readonly PropertyBag.Package packedProperties;
+        protected readonly QueueConnection connection;
+        protected readonly QueueCursorHandle cursorHandle;
+        protected readonly PropertyBag.Package packedProperties;
         private readonly TaskCompletionSource<Message> taskSource;
         private readonly CancellationTokenRegistration cancelReg;
 
-        public QueueAsyncRequest(QueueConnection connection, MessageProperty propertyFlags, CancellationToken cancellationToken)
-            : this(connection, QueueCursorHandle.None, new MessageProperties(propertyFlags), cancellationToken)
-        {
-        }
-
-        public QueueAsyncRequest(QueueConnection connection, QueueCursorHandle cursorHandle, MessageProperties properties, CancellationToken cancellationToken)
+        protected QueueAsyncRequest(QueueConnection connection, QueueCursorHandle cursorHandle, MessageProperties properties, CancellationToken cancellationToken)
         {
             this.connection = connection;
             this.cursorHandle = cursorHandle;
@@ -27,10 +22,6 @@
             this.taskSource = new TaskCompletionSource<Message>();
             this.cancelReg = cancellationToken.Register(CancelRequest, useSynchronizationContext: false);
         }
-
-        public ReceiveAction Action { get; init; }
-
-        public TimeSpan? Timeout { get; init; }
 
         object? IAsyncResult.AsyncState => this.taskSource.Task.AsyncState;
         WaitHandle IAsyncResult.AsyncWaitHandle => ((IAsyncResult)this.taskSource.Task).AsyncWaitHandle;
@@ -51,25 +42,17 @@
             var freeResources = false;
             try
             {
-                var readAction = this.Action;
+                var adjustAction = false;
                 while (true)
                 {
                     // receive, may complete synchronously or call the async callback on the overlapped defined above
-                    var result = MQ.ReceiveMessage(this.connection.ReadHandle, MQ.GetTimeout(this.Timeout), readAction,
-                        this.packedProperties, nativeOverlapped, null, this.cursorHandle, IntPtr.Zero);
+                    var result = ReceiveMessage(nativeOverlapped, adjustAction);
 
                     if (MQ.IsBufferOverflow(result))
                     {
                         // successfully completed synchronously but no enough memory
 
-                        if (readAction == ReceiveAction.PeekNext)
-                        {
-                            // Need to special-case retrying PeekNext after a buffer overflow 
-                            // by using PeekCurrent on retries since otherwise MSMQ will
-                            // advance the cursor, skipping messages
-                            readAction = ReceiveAction.PeekCurrent;
-                        }
-
+                        adjustAction = true;
                         this.packedProperties.Adjust(result);
                         continue; // try again
                     }
@@ -101,15 +84,19 @@
             return this.taskSource.Task;
         }
 
+        protected abstract unsafe MQ.HR ReceiveMessage(NativeOverlapped* nativeOverlapped, bool anotherTry);
+
         private unsafe void EndRead(MQ.HR result, NativeOverlapped* pOverlap)
         {
             var freeResources = true;
             try
             {
+                var adjustAction = false;
                 while (true)
                 {
                     if (MQ.IsBufferOverflow(result))
                     {
+                        adjustAction = true;
                         this.packedProperties.Adjust(result);
                     }
                     else if (MQ.IsStaleHandle(result))
@@ -127,9 +114,7 @@
                         return;
                     }
 
-                    var readAction = this.Action == ReceiveAction.PeekNext ? ReceiveAction.PeekCurrent : this.Action;
-                    result = MQ.ReceiveMessage(this.connection.ReadHandle, MQ.GetTimeout(this.Timeout), readAction,
-                        this.packedProperties, pOverlap, null, this.cursorHandle, IntPtr.Zero);
+                    result = ReceiveMessage(pOverlap, adjustAction);
 
                     if (result == MQ.HR.INFORMATION_OPERATION_PENDING)
                     {
@@ -186,6 +171,44 @@
         private unsafe void CompletionCallback(uint errorCode, uint numBytes, NativeOverlapped* pOverlap)
         {
             EndRead(MQ.GetOverlappedResult(pOverlap), pOverlap);
+        }
+    }
+
+    sealed class QueueReceiveAsyncRequest : QueueAsyncRequest
+    {
+        public QueueReceiveAsyncRequest(QueueConnection connection, QueueCursorHandle cursorHandle, MessageProperties properties, CancellationToken cancellationToken) : base(connection, cursorHandle, properties, cancellationToken)
+        {
+        }
+
+        public ReceiveAction Action { get; init; }
+
+        public TimeSpan? Timeout { get; init; }
+
+        protected override unsafe MQ.HR ReceiveMessage(NativeOverlapped* nativeOverlapped, bool anotherTry)
+        {
+            // Need to special-case retrying PeekNext after a buffer overflow 
+            // by using PeekCurrent on retries since otherwise MSMQ will
+            // advance the cursor, skipping messages
+            var action = anotherTry && this.Action == ReceiveAction.PeekNext ? ReceiveAction.PeekCurrent : this.Action;
+            return MQ.ReceiveMessage(this.connection.ReadHandle, MQ.GetTimeout(this.Timeout), action,
+                        this.packedProperties, nativeOverlapped, null, this.cursorHandle, IntPtr.Zero);
+        }
+    }
+
+    sealed class QueueLookupAsyncRequest : QueueAsyncRequest
+    {
+        public QueueLookupAsyncRequest(QueueConnection connection, QueueCursorHandle cursorHandle, MessageProperties properties, CancellationToken cancellationToken) : base(connection, cursorHandle, properties, cancellationToken)
+        {
+        }
+
+        public LookupAction Action { get; init; }
+
+        public ulong LookupId { get; init; }
+
+        protected override unsafe MQ.HR ReceiveMessage(NativeOverlapped* nativeOverlapped, bool anotherTry)
+        {
+            return MQ.ReceiveMessageByLookupId(this.connection.ReadHandle, this.LookupId, this.Action,
+                        this.packedProperties, nativeOverlapped, null, IntPtr.Zero);
         }
     }
 }

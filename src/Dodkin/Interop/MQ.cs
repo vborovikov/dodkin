@@ -84,11 +84,11 @@ namespace Dodkin.Interop
         [DllImport(MQRT, EntryPoint = "MQReceiveMessageByLookupId", CharSet = CharSet.Unicode)]
         public unsafe static extern HR ReceiveMessageByLookupId(
             QueueHandle handle,
-            long lookupId,
+            ulong lookupId,
             LookupAction action,
             MQPROPS properties,
             NativeOverlapped* overlapped,
-            ReceiveCallback receiveCallback,
+            ReceiveCallback? receiveCallback,
             IntPtr transaction);
 
         [DllImport(MQRT, EntryPoint = "MQReceiveMessageByLookupId", CharSet = CharSet.Unicode)]
