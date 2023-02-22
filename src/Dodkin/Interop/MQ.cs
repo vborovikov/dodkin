@@ -118,46 +118,5 @@ namespace Dodkin.Interop
         public unsafe static extern int GetHandleInformation(QueueHandle handle, out int flags);
 
         public static uint GetTimeout(TimeSpan? timeout) => (uint)(timeout ?? Timeout.InfiniteTimeSpan).TotalMilliseconds;
-
-        public static bool IsBufferOverflow(HR hresult)
-        {
-            return hresult switch
-            {
-                HR.INFORMATION_FORMATNAME_BUFFER_TOO_SMALL or
-                HR.ERROR_BUFFER_OVERFLOW or
-                HR.ERROR_FORMATNAME_BUFFER_TOO_SMALL or
-                HR.ERROR_SENDERID_BUFFER_TOO_SMALL or
-                HR.ERROR_USER_BUFFER_TOO_SMALL or
-                HR.ERROR_SENDER_CERT_BUFFER_TOO_SMALL or
-                HR.ERROR_RESULT_BUFFER_TOO_SMALL or
-                HR.ERROR_LABEL_BUFFER_TOO_SMALL or
-                HR.ERROR_SYMM_KEY_BUFFER_TOO_SMALL or
-                HR.ERROR_SIGNATURE_BUFFER_TOO_SMALL or
-                HR.ERROR_PROV_NAME_BUFFER_TOO_SMALL => true,
-                _ => false,
-            };
-        }
-
-        public static bool IsStaleHandle(HR hresult)
-        {
-            return hresult switch
-            {
-                HR.ERROR_STALE_HANDLE or
-                HR.ERROR_INVALID_HANDLE or
-                HR.ERROR_INVALID_PARAMETER or
-                HR.ERROR_QUEUE_DELETED => true,
-                _ => false,
-            };
-        }
-
-        public static bool IsFatalError(HR hresult)
-        {
-            if (hresult == HR.OK)
-                return false;
-            if (((uint)hresult & 0xC0000000) == 0x40000000)
-                return false;
-
-            return true;
-        }
     }
 }
