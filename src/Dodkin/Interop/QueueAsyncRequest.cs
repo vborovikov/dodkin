@@ -26,11 +26,6 @@
             this.cancelReg = cancellationToken.Register(CancelRequest, useSynchronizationContext: false);
         }
 
-        public QueueAsyncRequest(QueueConnection connection, MessageProperties properties, CancellationToken cancellationToken)
-            : this(connection, QueueCursorHandle.None, properties.Pack(), cancellationToken)
-        {
-        }
-
         public ReceiveAction Action { get; init; }
 
         public TimeSpan? Timeout { get; init; }
@@ -65,7 +60,7 @@
                 {
                     // receive, may complete synchronously or call the async callback on the overlapped defined above
                     var result = MQ.ReceiveMessage(this.connection.ReadHandle, MQ.GetTimeout(this.Timeout), readAction,
-                        this.packedProperties, nativeOverlapped, null!, this.cursor, IntPtr.Zero);
+                        this.packedProperties, nativeOverlapped, null, this.cursor, IntPtr.Zero);
 
                     if (MQ.IsBufferOverflow(result))
                     {
