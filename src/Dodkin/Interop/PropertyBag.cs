@@ -515,6 +515,7 @@ namespace Dodkin.Interop
             private readonly MQPROPVARIANT[] propVars;
             private readonly uint[] propStatus;
             private readonly GCHandle[] handles;
+            private readonly MQPROPS dataRef;
 
             internal Package(PropertyBag bag)
             {
@@ -523,11 +524,12 @@ namespace Dodkin.Interop
                 this.propVars = new MQPROPVARIANT[this.bag.count];
                 this.propStatus = new uint[this.bag.count];
                 this.handles = new GCHandle[this.bag.count + 3];
+                this.dataRef = new MQPROPS();
 
                 Allocate();
             }
 
-            public static implicit operator MQPROPS(Package package) => package.bag.dataRef;
+            public static implicit operator MQPROPS(Package package) => package.dataRef;
 
             public TProperties Unpack<TProperties>() where TProperties : PropertyBag
             {
@@ -576,18 +578,18 @@ namespace Dodkin.Interop
                     ++index;
                 }
 
-                this.bag.dataRef.cProp = this.propIds.Length;
+                this.dataRef.cProp = this.propIds.Length;
 
                 var propIdsHandle = GCHandle.Alloc(this.propIds, GCHandleType.Pinned);
-                this.bag.dataRef.aPropID = propIdsHandle.AddrOfPinnedObject();
+                this.dataRef.aPropID = propIdsHandle.AddrOfPinnedObject();
                 this.handles[index++] = propIdsHandle;
 
                 var propVarsHandle = GCHandle.Alloc(this.propVars, GCHandleType.Pinned);
-                this.bag.dataRef.aPropVar = propVarsHandle.AddrOfPinnedObject();
+                this.dataRef.aPropVar = propVarsHandle.AddrOfPinnedObject();
                 this.handles[index++] = propVarsHandle;
 
                 var propStatusHandle = GCHandle.Alloc(this.propStatus, GCHandleType.Pinned);
-                this.bag.dataRef.aStatus = propStatusHandle.AddrOfPinnedObject();
+                this.dataRef.aStatus = propStatusHandle.AddrOfPinnedObject();
                 this.handles[index++] = propStatusHandle;
             }
 
@@ -602,12 +604,12 @@ namespace Dodkin.Interop
                     }
                 }
 
-                this.bag.dataRef.Clear();
+                this.dataRef.Clear();
             }
 
             private void Import()
             {
-                if (this.bag.dataRef.IsEmpty)
+                if (this.dataRef.IsEmpty)
                     throw new InvalidOperationException();
 
                 for (var i = 0; i != this.propIds.Length; ++i)
@@ -624,13 +626,11 @@ namespace Dodkin.Interop
         private readonly PropertyBox[] properties;
         private readonly int baseId;
         private int count;
-        private readonly MQPROPS dataRef;
 
         protected PropertyBag(int maxPropertyCount, int basePropertyId)
         {
             this.properties = new PropertyBox[maxPropertyCount];
             this.baseId = basePropertyId;
-            this.dataRef = new MQPROPS();
         }
 
         protected PropertyBox this[int propertyId] => this.properties[propertyId - this.baseId];

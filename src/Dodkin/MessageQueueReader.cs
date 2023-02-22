@@ -28,61 +28,58 @@
             MessageQueueException.ThrowIfNotOK(MQ.PurgeQueue(this.Handle));
         }
 
-        public Message Peek(MessageProperty properties = MessageProperty.All, TimeSpan? timeout = null, QueueTransaction? transaction = null)
+        public Message Peek(MessageProperty propertyFlags = MessageProperty.All, TimeSpan? timeout = null, QueueTransaction? transaction = null)
         {
-            return Receive(QueueCursorHandle.None, ReceiveAction.PeekCurrent, properties, timeout, transaction);
+            return Receive(QueueCursorHandle.None, ReceiveAction.PeekCurrent, propertyFlags, timeout, transaction);
         }
 
-        public Task<Message> PeekAsync(MessageProperty properties, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+        public Task<Message> PeekAsync(MessageProperty propertyFlags, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
         {
-            return ReceiveAsync(QueueCursorHandle.None, ReceiveAction.PeekCurrent, properties, timeout, cancellationToken);
+            return ReceiveAsync(QueueCursorHandle.None, ReceiveAction.PeekCurrent, propertyFlags, timeout, cancellationToken);
         }
 
-        public Message Read(MessageProperty properties = MessageProperty.All, TimeSpan? timeout = null, QueueTransaction? transaction = null)
+        public Message Read(MessageProperty propertyFlags = MessageProperty.All, TimeSpan? timeout = null, QueueTransaction? transaction = null)
         {
-            return Receive(QueueCursorHandle.None, ReceiveAction.Receive, properties, timeout, transaction);
+            return Receive(QueueCursorHandle.None, ReceiveAction.Receive, propertyFlags, timeout, transaction);
         }
 
-        public Task<Message> ReadAsync(MessageProperty properties, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+        public Task<Message> ReadAsync(MessageProperty propertyFlags, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
         {
-            return ReceiveAsync(QueueCursorHandle.None, ReceiveAction.Receive, properties, timeout, cancellationToken);
+            return ReceiveAsync(QueueCursorHandle.None, ReceiveAction.Receive, propertyFlags, timeout, cancellationToken);
         }
 
-        public async Task<Message> ReadAsync(MessageId correlationId, MessageProperty properties, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+        public async Task<Message> ReadAsync(MessageId correlationId, MessageProperty propertyFlags, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
         {
             using var cursorHandle = QueueCursorHandle.Create(this.Handle);
             using var peekProperties = new MessageProperties(MessageProperty.CorrelationId);
-            using var packedProperties = peekProperties.Pack();
 
-            for (var msg = await ReceiveAsync(cursorHandle, ReceiveAction.PeekCurrent, packedProperties, false, timeout, cancellationToken);
+            for (var msg = await ReceiveAsync(cursorHandle, ReceiveAction.PeekCurrent, peekProperties, timeout, cancellationToken);
                 !msg.IsEmpty;
-                msg = await ReceiveAsync(cursorHandle, ReceiveAction.PeekNext, packedProperties, false, timeout, cancellationToken))
+                msg = await ReceiveAsync(cursorHandle, ReceiveAction.PeekNext, peekProperties, timeout, cancellationToken))
             {
                 if (msg.CorrelationId == correlationId)
                 {
                     return await ReceiveAsync(cursorHandle, ReceiveAction.Receive,
-                        new MessageProperties(properties).Pack(), true, timeout, cancellationToken);
+                        new MessageProperties(propertyFlags), timeout, cancellationToken);
                 }
             }
 
             return default;
         }
 
-        internal Task<Message> ReceiveAsync(QueueCursorHandle cursorHandle, ReceiveAction action, MessageProperty properties,
+        internal Task<Message> ReceiveAsync(QueueCursorHandle cursorHandle, ReceiveAction action, MessageProperty propertyFlags,
             TimeSpan? timeout, CancellationToken cancellationToken)
         {
-            return ReceiveAsync(cursorHandle, action, new MessageProperties(properties).Pack(), true, timeout, cancellationToken);
+            return ReceiveAsync(cursorHandle, action, new MessageProperties(propertyFlags), timeout, cancellationToken);
         }
 
         private Task<Message> ReceiveAsync(QueueCursorHandle cursorHandle, ReceiveAction action,
-            MessageProperties.Package properties, bool disposeProperties,
-            TimeSpan? timeout, CancellationToken cancellationToken)
+            MessageProperties properties, TimeSpan? timeout, CancellationToken cancellationToken)
         {
             var ar = new QueueAsyncRequest(this.cnn, cursorHandle, properties, cancellationToken)
             {
                 Action = action,
                 Timeout = timeout,
-                OwnsProperties = disposeProperties,
             };
 
             return ar.BeginRead();

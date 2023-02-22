@@ -8,19 +8,21 @@
     class QueueAsyncRequest : IAsyncResult, IDisposable
     {
         private readonly QueueConnection connection;
-        private readonly QueueCursorHandle cursor;
-        private readonly MessageProperties.Package packedProperties;
+        private readonly QueueCursorHandle cursorHandle;
+        private readonly PropertyBag.Package packedProperties;
         private readonly TaskCompletionSource<Message> taskSource;
         private readonly CancellationTokenRegistration cancelReg;
 
-        public QueueAsyncRequest(QueueConnection connection, QueueCursorHandle cursor, MessageProperties.Package packedProperties, CancellationToken cancellationToken)
+        public QueueAsyncRequest(QueueConnection connection, MessageProperty propertyFlags, CancellationToken cancellationToken)
+            : this(connection, QueueCursorHandle.None, new MessageProperties(propertyFlags), cancellationToken)
         {
-            ArgumentNullException.ThrowIfNull(cursor);
+        }
 
+        public QueueAsyncRequest(QueueConnection connection, QueueCursorHandle cursorHandle, MessageProperties properties, CancellationToken cancellationToken)
+        {
             this.connection = connection;
-            this.cursor = cursor;
-            this.packedProperties = packedProperties;
-            this.OwnsProperties = true;
+            this.cursorHandle = cursorHandle;
+            this.packedProperties = properties.Pack();
 
             this.taskSource = new TaskCompletionSource<Message>();
             this.cancelReg = cancellationToken.Register(CancelRequest, useSynchronizationContext: false);
@@ -30,8 +32,6 @@
 
         public TimeSpan? Timeout { get; init; }
 
-        public bool OwnsProperties { get; init; }
-
         object? IAsyncResult.AsyncState => this.taskSource.Task.AsyncState;
         WaitHandle IAsyncResult.AsyncWaitHandle => ((IAsyncResult)this.taskSource.Task).AsyncWaitHandle;
         bool IAsyncResult.CompletedSynchronously => ((IAsyncResult)this.taskSource.Task).CompletedSynchronously;
@@ -39,11 +39,7 @@
 
         public void Dispose()
         {
-            if (this.OwnsProperties)
-            {
-                // we own the packed properties
-                this.packedProperties.Dispose();
-            }
+            this.packedProperties.Dispose();
             this.cancelReg.Dispose();
         }
 
@@ -60,7 +56,7 @@
                 {
                     // receive, may complete synchronously or call the async callback on the overlapped defined above
                     var result = MQ.ReceiveMessage(this.connection.ReadHandle, MQ.GetTimeout(this.Timeout), readAction,
-                        this.packedProperties, nativeOverlapped, null, this.cursor, IntPtr.Zero);
+                        this.packedProperties, nativeOverlapped, null, this.cursorHandle, IntPtr.Zero);
 
                     if (MQ.IsBufferOverflow(result))
                     {
@@ -133,7 +129,7 @@
 
                     var readAction = this.Action == ReceiveAction.PeekNext ? ReceiveAction.PeekCurrent : this.Action;
                     result = MQ.ReceiveMessage(this.connection.ReadHandle, MQ.GetTimeout(this.Timeout), readAction,
-                        this.packedProperties, pOverlap, null, this.cursor, IntPtr.Zero);
+                        this.packedProperties, pOverlap, null, this.cursorHandle, IntPtr.Zero);
 
                     if (result == MQ.HR.INFORMATION_OPERATION_PENDING)
                     {

@@ -154,6 +154,7 @@ public class MessageQueueTests
 
         using var reader = new MessageQueueReader(testQueueName);
         var msg = await reader.ReadAsync(correlationId, MessageProperty.Label);
+        reader.Purge();
 
         Assert.AreEqual("Third", msg.Label);
     }
