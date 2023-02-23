@@ -8,15 +8,13 @@
     abstract class QueueAsyncRequest : IAsyncResult, IDisposable
     {
         protected readonly QueueConnection connection;
-        protected readonly QueueCursorHandle cursorHandle;
         protected readonly PropertyBag.Package packedProperties;
         private readonly TaskCompletionSource<Message> taskSource;
         private readonly CancellationTokenRegistration cancelReg;
 
-        protected QueueAsyncRequest(QueueConnection connection, QueueCursorHandle cursorHandle, MessageProperties properties, CancellationToken cancellationToken)
+        protected QueueAsyncRequest(QueueConnection connection, MessageProperties properties, CancellationToken cancellationToken)
         {
             this.connection = connection;
-            this.cursorHandle = cursorHandle;
             this.packedProperties = properties.Pack();
 
             this.taskSource = new TaskCompletionSource<Message>();
@@ -176,8 +174,12 @@
 
     sealed class QueueReceiveAsyncRequest : QueueAsyncRequest
     {
-        public QueueReceiveAsyncRequest(QueueConnection connection, QueueCursorHandle cursorHandle, MessageProperties properties, CancellationToken cancellationToken) : base(connection, cursorHandle, properties, cancellationToken)
+        private readonly QueueCursorHandle cursorHandle;
+
+        public QueueReceiveAsyncRequest(QueueConnection connection, QueueCursorHandle cursorHandle, MessageProperties properties, CancellationToken cancellationToken)
+            : base(connection, properties, cancellationToken)
         {
+            this.cursorHandle = cursorHandle;
         }
 
         public ReceiveAction Action { get; init; }
@@ -197,7 +199,8 @@
 
     sealed class QueueLookupAsyncRequest : QueueAsyncRequest
     {
-        public QueueLookupAsyncRequest(QueueConnection connection, QueueCursorHandle cursorHandle, MessageProperties properties, CancellationToken cancellationToken) : base(connection, cursorHandle, properties, cancellationToken)
+        public QueueLookupAsyncRequest(QueueConnection connection, MessageProperties properties, CancellationToken cancellationToken)
+            : base(connection, properties, cancellationToken)
         {
         }
 
