@@ -53,14 +53,14 @@
             using var cursorHandle = QueueCursorHandle.Create(this.Handle);
             using var peekProperties = new MessageProperties(MessageProperty.CorrelationId);
 
-            for (var msg = await ReceiveAsync(cursorHandle, ReceiveAction.PeekCurrent, peekProperties, timeout, cancellationToken);
+            for (var msg = await ReceiveAsync(cursorHandle, ReceiveAction.PeekCurrent, peekProperties, timeout, cancellationToken).ConfigureAwait(false);
                 !msg.IsEmpty;
-                msg = await ReceiveAsync(cursorHandle, ReceiveAction.PeekNext, peekProperties, timeout, cancellationToken))
+                msg = await ReceiveAsync(cursorHandle, ReceiveAction.PeekNext, peekProperties, timeout, cancellationToken).ConfigureAwait(false))
             {
                 if (msg.CorrelationId == correlationId)
                 {
                     return await ReceiveAsync(cursorHandle, ReceiveAction.Receive,
-                        new MessageProperties(propertyFlags), timeout, cancellationToken);
+                        new MessageProperties(propertyFlags), timeout, cancellationToken).ConfigureAwait(false);
                 }
             }
 
