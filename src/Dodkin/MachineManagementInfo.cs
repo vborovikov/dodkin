@@ -24,7 +24,7 @@
 
         public void Dispose()
         {
-            this.properties.Dispose();
+            this.properties?.Dispose();
         }
     }
 }
