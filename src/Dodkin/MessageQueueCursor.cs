@@ -1,5 +1,7 @@
 ﻿namespace Dodkin
 {
+    using System.Collections.Generic;
+    using System.Runtime.CompilerServices;
     using Interop;
 
     /// <summary>
@@ -29,6 +31,11 @@
             return this.reader.Receive(this.cursorHandle, ReceiveAction.PeekCurrent, properties, timeout, transaction);
         }
 
+        public IAsyncEnumerable<Message> PeekAllAsync(MessageProperty propertyFlags, CancellationToken cancellationToken = default)
+        {
+            return InternalPeekAllAsync(propertyFlags, cancellationToken);
+        }
+
         public Task<Message> PeekAsync(MessageProperty properties, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
         {
             return this.reader.ReceiveAsync(this.cursorHandle, ReceiveAction.PeekCurrent, properties, timeout, cancellationToken);
@@ -49,9 +56,38 @@
             return this.reader.Receive(this.cursorHandle, ReceiveAction.Receive, properties, timeout, transaction);
         }
 
+        public IAsyncEnumerable<Message> ReadAllAsync(MessageProperty propertyFlags, CancellationToken cancellationToken = default)
+        {
+            return this.reader.InternalReceiveAllAsync(this.cursorHandle, propertyFlags, cancellationToken);
+        }
+
         public Task<Message> ReadAsync(MessageProperty properties, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
         {
             return this.reader.ReceiveAsync(this.cursorHandle, ReceiveAction.Receive, properties, timeout, cancellationToken);
         }
+
+        private async IAsyncEnumerable<Message> InternalPeekAllAsync(MessageProperty propertyFlags,
+            CancellationToken cancellationToken, [EnumeratorCancellation] CancellationToken enumeratorCancellationToken = default)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, enumeratorCancellationToken);
+            using var messageProperties = new MessageProperties(propertyFlags);
+
+            for (var peekAction = ReceiveAction.PeekCurrent; !cts.IsCancellationRequested; peekAction = ReceiveAction.PeekNext)
+            {
+                var message = default(Message);
+
+                try
+                {
+                    message = await this.reader.ReceiveAsync(this.cursorHandle, peekAction, messageProperties, null, cts.Token).ConfigureAwait(false);
+                }
+                catch (TaskCanceledException)
+                {
+                    yield break;
+                }
+
+                yield return message;
+            }
+        }
+
     }
 }

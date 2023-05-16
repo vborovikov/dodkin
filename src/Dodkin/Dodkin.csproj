@@ -22,7 +22,7 @@
     <PackageProjectUrl>https://github.com/vborovikov/dodkin</PackageProjectUrl>
     <RepositoryUrl>https://github.com/vborovikov/dodkin</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>msmq;messaging</PackageTags>
+    <PackageTags>msmq;messaging;queue</PackageTags>
     <PackageReleaseNotes></PackageReleaseNotes>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <NoWarn>1591</NoWarn>

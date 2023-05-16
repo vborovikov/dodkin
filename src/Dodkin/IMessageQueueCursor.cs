@@ -33,5 +33,7 @@
         /// which can be default if the operation times out.
         /// </returns>
         Task<Message> PeekNextAsync(MessageProperty properties, TimeSpan? timeout = default, CancellationToken cancellationToken = default);
+
+        IAsyncEnumerable<Message> PeekAllAsync(MessageProperty propertyFlags, CancellationToken cancellationToken = default);
     }
 }

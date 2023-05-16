@@ -62,6 +62,8 @@
         /// which can be <c>default</c> if the operation times out.
         /// </returns>
         Task<Message> ReadAsync(MessageProperty properties, TimeSpan? timeout = default, CancellationToken cancellationToken = default);
+
+        IAsyncEnumerable<Message> ReadAllAsync(MessageProperty propertyFlags, CancellationToken cancellationToken = default);
     }
 
     /// <summary>

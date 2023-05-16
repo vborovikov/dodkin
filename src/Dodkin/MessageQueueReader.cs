@@ -1,5 +1,7 @@
 ﻿namespace Dodkin
 {
+    using System.Collections.Generic;
+    using System.Runtime.CompilerServices;
     using Interop;
 
     /// <summary>
@@ -73,7 +75,7 @@
             return ReceiveAsync(cursorHandle, action, new MessageProperties(propertyFlags), timeout, cancellationToken);
         }
 
-        private Task<Message> ReceiveAsync(QueueCursorHandle cursorHandle, ReceiveAction action,
+        internal Task<Message> ReceiveAsync(QueueCursorHandle cursorHandle, ReceiveAction action,
             MessageProperties properties, TimeSpan? timeout, CancellationToken cancellationToken)
         {
             var ar = new QueueReceiveAsyncRequest(this.cnn, cursorHandle, properties, cancellationToken)
@@ -114,6 +116,35 @@
                 }
 
                 return packedProperties.Unpack<MessageProperties>();
+            }
+        }
+
+        public IAsyncEnumerable<Message> ReadAllAsync(MessageProperty propertyFlags, CancellationToken cancellationToken = default)
+        {
+            return InternalReceiveAllAsync(QueueCursorHandle.None, propertyFlags, cancellationToken);
+        }
+
+        internal async IAsyncEnumerable<Message> InternalReceiveAllAsync(
+            QueueCursorHandle cursorHandle, MessageProperty propertyFlags,
+            CancellationToken cancellationToken, [EnumeratorCancellation] CancellationToken enumeratorCancellationToken = default)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, enumeratorCancellationToken);
+            using var messageProperties = new MessageProperties(propertyFlags);
+
+            while (!cts.IsCancellationRequested)
+            {
+                var message = default(Message);
+
+                try
+                {
+                    message = await ReceiveAsync(cursorHandle, ReceiveAction.Receive, messageProperties, null, cts.Token).ConfigureAwait(false);
+                }
+                catch (TaskCanceledException)
+                {
+                    yield break;
+                }
+
+                yield return message;
             }
         }
     }
