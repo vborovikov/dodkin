@@ -20,7 +20,7 @@
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/vborovikov/dodkin</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/vborovikov/dodkin</RepositoryUrl>
+    <RepositoryUrl>https://github.com/vborovikov/dodkin.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>msmq;messaging;queue</PackageTags>
     <PackageReleaseNotes></PackageReleaseNotes>
