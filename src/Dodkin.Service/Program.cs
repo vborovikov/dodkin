@@ -1,15 +1,26 @@
 namespace Dodkin.Service;
 
 using System.Text;
+using Data;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.EventLog;
+using Recorder;
 
 record ServiceOptions
 {
     public const string ServiceName = "Dodkin";
+
+    public string ApplicationQueue { get; init; }
+    public string DeadLetterQueue { get; init; }
 }
 
-public static class Program
+static class Program
 {
+    static Program()
+    {
+        DbTypes.Initialize();
+    }
+
     public static void Main(string[] args)
     {
         if (Environment.UserInteractive)
@@ -42,6 +53,14 @@ public static class Program
                 settings.SourceName = ServiceOptions.ServiceName;
                 settings.LogName = "Application";
             });
+
+            // db
+            services.AddSingleton<IDbFactory>(_ => new DbFactory(SqlClientFactory.Instance,
+                hostContext.Configuration.GetConnectionString("Service")));
+            // mq
+            services.AddSingleton<IMessageQueueFactory, MessageQueueFactory>();
+
+            services.AddSingleton<MessageStore>();
             services.AddHostedService<Worker>();
         })
         .UseWindowsService(options =>
