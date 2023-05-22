@@ -1,6 +1,7 @@
 namespace Dodkin.Interop
 {
     using System;
+    using System.Collections;
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
     using System.Text;
@@ -27,11 +28,11 @@ namespace Dodkin.Interop
 
             public int Read(ref Utf8JsonReader reader) => reader.Read() ? ReadOverride(ref reader) : 0;
 
-            public void Write(Utf8JsonWriter writer) => WriteOverride(writer);
+            public void Write(Utf8JsonWriter writer, int size) => WriteOverride(writer, size);
 
             protected abstract int ReadOverride(ref Utf8JsonReader reader);
 
-            protected abstract void WriteOverride(Utf8JsonWriter writer);
+            protected abstract void WriteOverride(Utf8JsonWriter writer, int size);
         }
 
         private abstract class PropertyBox<T> : PropertyBox
@@ -72,7 +73,7 @@ namespace Dodkin.Interop
                 return 1;
             }
 
-            protected override void WriteOverride(Utf8JsonWriter writer)
+            protected override void WriteOverride(Utf8JsonWriter writer, int size)
             {
                 writer.WriteNumberValue(this.Value);
             }
@@ -99,7 +100,7 @@ namespace Dodkin.Interop
                 return 2;
             }
 
-            protected override void WriteOverride(Utf8JsonWriter writer)
+            protected override void WriteOverride(Utf8JsonWriter writer, int size)
             {
                 writer.WriteNumberValue(this.Value);
             }
@@ -128,7 +129,7 @@ namespace Dodkin.Interop
                 return 4;
             }
 
-            protected override void WriteOverride(Utf8JsonWriter writer)
+            protected override void WriteOverride(Utf8JsonWriter writer, int size)
             {
                 writer.WriteNumberValue(this.Value);
             }
@@ -155,7 +156,7 @@ namespace Dodkin.Interop
                 return 8;
             }
 
-            protected override void WriteOverride(Utf8JsonWriter writer)
+            protected override void WriteOverride(Utf8JsonWriter writer, int size)
             {
                 writer.WriteNumberValue(this.Value);
             }
@@ -205,9 +206,9 @@ namespace Dodkin.Interop
                 }
             }
 
-            protected override void WriteOverride(Utf8JsonWriter writer)
+            protected override void WriteOverride(Utf8JsonWriter writer, int size)
             {
-                writer.WriteBase64StringValue(this.Value);
+                writer.WriteBase64StringValue(GetValue(size > 0 ? size : this.Value.Length));
             }
 
             protected override int ReadOverride(ref Utf8JsonReader reader)
@@ -289,7 +290,7 @@ namespace Dodkin.Interop
                 return MessageId.Size;
             }
 
-            protected override void WriteOverride(Utf8JsonWriter writer)
+            protected override void WriteOverride(Utf8JsonWriter writer, int size)
             {
                 if (this.Value == default)
                 {
@@ -384,7 +385,7 @@ namespace Dodkin.Interop
             private static int GetMaxByteCount(int strLength) =>
                 (strLength * 2) + 1;
 
-            protected override void WriteOverride(Utf8JsonWriter writer)
+            protected override void WriteOverride(Utf8JsonWriter writer, int size)
             {
                 writer.WriteStringValue(this.Value);
             }
@@ -418,7 +419,7 @@ namespace Dodkin.Interop
                 return 16;
             }
 
-            protected override void WriteOverride(Utf8JsonWriter writer)
+            protected override void WriteOverride(Utf8JsonWriter writer, int size)
             {
                 writer.WriteStringValue(this.Value);
             }
@@ -451,7 +452,7 @@ namespace Dodkin.Interop
                 return str.Length + 1;
             }
 
-            protected override void WriteOverride(Utf8JsonWriter writer)
+            protected override void WriteOverride(Utf8JsonWriter writer, int size)
             {
                 writer.WriteStringValue(this.Value);
             }
@@ -496,7 +497,7 @@ namespace Dodkin.Interop
                 return strs.Count;
             }
 
-            protected override void WriteOverride(Utf8JsonWriter writer)
+            protected override void WriteOverride(Utf8JsonWriter writer, int size)
             {
                 writer.WriteStartArray();
                 foreach (var str in this.Value)
@@ -618,6 +619,20 @@ namespace Dodkin.Interop
                     if (propertyId > 0)
                     {
                         this.bag.properties[propertyId - this.bag.baseId]?.Import(this.propVars[i], (MQ.HR)this.propStatus[i]);
+                    }
+                }
+            }
+
+            internal void Dump(IDictionary data)
+            {
+                for (var i = 0; i != this.propIds.Length; ++i)
+                {
+                    var propertyId = this.propIds[i];
+                    var propertyStatus = (MQ.HR)this.propStatus[i];
+
+                    if (propertyId > 0 && propertyStatus != MQ.HR.OK)
+                    {
+                        data.Add(propertyId, Enum.GetName(propertyStatus));
                     }
                 }
             }
@@ -877,6 +892,10 @@ namespace Dodkin.Interop
             {
                 InitString(MQ.PROPID.M.DEADLETTER_QUEUE, MQ.PROPID.M.DEADLETTER_QUEUE_LEN, initEmpty ? 0 : 124);
             }
+            if (propertyFlags.HasFlag(MessageProperty.AppSpecific))
+            {
+                SetValue(MQ.PROPID.M.APPSPECIFIC, 0u);
+            }
         }
 
         public static implicit operator Message(MessageProperties properties) => new(properties);
@@ -885,15 +904,20 @@ namespace Dodkin.Interop
         {
             writer.WriteStartObject();
 
+            var dummy = default(GCHandle);
             var maxPropertyCount = propertyNames.Length;
             for (var i = 0; i != maxPropertyCount; ++i)
             {
-                var property = base[GetPropertyId((MessageProperty)(1ul << i))];
-                if (property is not null)
+                var propertyId = GetPropertyId((MessageProperty)(1ul << i));
+                var property = base[propertyId];
+                var sizePropertyId = GetSizePropertyId(propertyId);
+                var sizeProperty = sizePropertyId > MQ.PROPID.M.BASE ? base[sizePropertyId] : null;
+                var size = (int?)sizeProperty?.Export(ref dummy).ulVal;
+                if (property is not null && (size is null || size > 0))
                 {
                     var propertyName = propertyNames[i];
                     writer.WritePropertyName(propertyName);
-                    property.Write(writer);
+                    property.Write(writer, size ?? -1);
                 }
             }
 
@@ -983,7 +1007,7 @@ namespace Dodkin.Interop
             MessageProperty.Delivery => MQ.PROPID.M.DELIVERY,
             MessageProperty.Acknowledge => MQ.PROPID.M.ACKNOWLEDGE,
             MessageProperty.Journal => MQ.PROPID.M.JOURNAL,
-            MessageProperty.AppApecific => MQ.PROPID.M.APPSPECIFIC,
+            MessageProperty.AppSpecific => MQ.PROPID.M.APPSPECIFIC,
             MessageProperty.Body => MQ.PROPID.M.BODY,
             MessageProperty.Label => MQ.PROPID.M.LABEL,
             MessageProperty.TimeToReachQueue => MQ.PROPID.M.TIME_TO_REACH_QUEUE,
