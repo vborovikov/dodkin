@@ -6,6 +6,18 @@
     <Nullable>warnings</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>DodkinService</UserSecretsId>
+    <AssemblyName>DodkinSvc</AssemblyName>
+    <VersionPrefix>0.3.6</VersionPrefix>
+    <VersionSuffix>beta</VersionSuffix>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>Vladislav Borovikov</Authors>
+    <Copyright>Copyright © 2023 Vladislav Borovikov</Copyright>
+    <Title>Dodkin Service</Title>
+    <AssemblyTitle>Dodkin Service</AssemblyTitle>
+    <Product>Dodkin's Job</Product>
+    <Description>Dodkin's Job</Description>
   </PropertyGroup>
 
   <ItemGroup>
