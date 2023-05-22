@@ -38,7 +38,7 @@
                 MQ.SendMessage(this.Handle, props, txnHandle) :
                 MQ.SendMessage(this.Handle, props, transaction.InternalTransaction!);
 
-            MessageQueueException.ThrowOnError(result);
+            MessageQueueException.ThrowOnError(result, props);
         }
 
         public Task WriteAsync(Message message, QueueTransaction? transaction = null, CancellationToken cancellationToken = default)
