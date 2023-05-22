@@ -12,7 +12,7 @@
         Delivery            = 1ul << 4,
         Acknowledge         = 1ul << 5,
         Journal             = 1ul << 6,
-        AppApecific         = 1ul << 7,
+        AppSpecific         = 1ul << 7,
         Body                = 1ul << 8,
         Label               = 1ul << 9,
         TimeToReachQueue    = 1ul << 10,
