@@ -271,6 +271,12 @@
             set => this.properties.SetString(MQ.PROPID.M.ADMIN_QUEUE, MQ.PROPID.M.ADMIN_QUEUE_LEN, value);
         }
 
+        public string DeadLetterQueue
+        {
+            get => this.properties.GetString(MQ.PROPID.M.DEADLETTER_QUEUE, MQ.PROPID.M.DEADLETTER_QUEUE_LEN);
+            set => this.properties.SetString(MQ.PROPID.M.DEADLETTER_QUEUE, MQ.PROPID.M.DEADLETTER_QUEUE_LEN, value);
+        }
+
         public MessageSenderIdType SenderIdType
         {
             get => (MessageSenderIdType)this.properties.GetValue<uint>(MQ.PROPID.M.SENDERID_TYPE);
