@@ -6,7 +6,15 @@ using Dapper;
 using Data;
 using Dodkin;
 
-sealed class MessageStore
+interface IMessageStore
+{
+    Task AddAsync(MessageRecord message, CancellationToken cancellationToken);
+    Task<MessageRecord> GetAsync(CancellationToken cancellationToken);
+    Task<DateTimeOffset?> GetDueTimeAsync(CancellationToken cancellationToken);
+    Task RemoveAsync(MessageId messageId, CancellationToken cancellationToken);
+}
+
+sealed class MessageStore : IMessageStore
 {
     private readonly IDbFactory db;
     private readonly ILogger<MessageStore> log;
@@ -48,11 +56,21 @@ sealed class MessageStore
     {
         await using var cnn = await this.db.OpenConnectionAsync(cancellationToken);
         await using var tx = await cnn.BeginTransactionAsync(cancellationToken);
-        await cnn.ExecuteAsync(
-            """
-            delete from job.Delivery
-            where MessageId = @MessageId;
-            """, new { MessageId = messageId }, tx);
+
+        try
+        {
+            await cnn.ExecuteAsync(
+                """
+                delete from job.Delivery
+                where MessageId = @MessageId;
+                """, new { MessageId = messageId }, tx);
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            this.log.LogError(ex, "Failed to delete message {MessageId}.", messageId);
+            await tx.RollbackAsync(cancellationToken);
+        }
     }
 
     public async Task<DateTimeOffset?> GetDueTimeAsync(CancellationToken cancellationToken)

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
 
   <PropertyGroup>
-    <TargetFramework>net7.0-windows</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
     <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
     <Nullable>warnings</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -17,5 +17,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Dodkin\Dodkin.csproj" />
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Dodkin.Tests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 </Project>

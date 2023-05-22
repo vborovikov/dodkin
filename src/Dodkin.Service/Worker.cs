@@ -8,12 +8,12 @@ sealed class Worker : BackgroundService
 {
     private readonly ServiceOptions options;
     private readonly IMessageQueueFactory mq;
-    private readonly MessageStore ms;
+    private readonly IMessageStore ms;
     private readonly ILogger<Worker> log;
     private readonly AsyncManualResetEvent msgEvent;
 
     public Worker(IOptions<ServiceOptions> options,
-        IMessageQueueFactory mq, MessageStore ms,
+        IMessageQueueFactory mq, IMessageStore ms,
         ILogger<Worker> log)
     {
         this.options = options.Value;

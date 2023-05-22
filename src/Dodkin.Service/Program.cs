@@ -1,5 +1,6 @@
 namespace Dodkin.Service;
 
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Data;
 using Microsoft.Data.SqlClient;
@@ -33,6 +34,7 @@ static class Program
         host.Run();
     }
 
+    [SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "<Pending>")]
     private static IHost CreateHost(string[] args) => Host.CreateDefaultBuilder(args)
         .ConfigureAppConfiguration((hostContext, configurationBuilder) =>
         {
@@ -57,10 +59,10 @@ static class Program
             // db
             services.AddSingleton<IDbFactory>(_ => new DbFactory(SqlClientFactory.Instance,
                 hostContext.Configuration.GetConnectionString("Service")));
+            services.AddSingleton<IMessageStore, MessageStore>();
             // mq
             services.AddSingleton<IMessageQueueFactory, MessageQueueFactory>();
-
-            services.AddSingleton<MessageStore>();
+            // svc
             services.AddHostedService<Worker>();
         })
         .UseWindowsService(options =>

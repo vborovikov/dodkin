@@ -8,14 +8,14 @@ record MessageRecord
     public DateTimeOffset DueTime { get; init; }
     public int RetryCount { get; init; }
 
-    public bool IsValid => this.DueTime > DateTimeOffset.Now;
+    public bool IsValid => !this.Message.IsEmpty && this.DueTime > DateTimeOffset.Now;
 
     public static MessageRecord From(in Message message)
     {
         return new()
         {
             MessageId = message.Id,
-            Destination = MessageQueueName.FromPathName(message.ResponseQueue),
+            Destination = MessageQueueName.FromFormatName(message.ResponseQueue),
             Message = message,
             DueTime = DateTimeOffset.FromUnixTimeSeconds(message.AppSpecific),
         };
