@@ -1,0 +1,12 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+ <PropertyGroup>
+    <VersionPrefix>0.3.6</VersionPrefix>
+    <VersionSuffix>beta</VersionSuffix>
+    <PackageVersion>$(Version)</PackageVersion>
+    <Authors>Vladislav Borovikov</Authors>
+    <Company>$(Authors)</Company>
+    <Copyright>Copyright © 2023 Vladislav Borovikov</Copyright>
+    <Product>$(Title)</Product>
+    <AssemblyTitle>$(Description)</AssemblyTitle>
+ </PropertyGroup>
+</Project>
