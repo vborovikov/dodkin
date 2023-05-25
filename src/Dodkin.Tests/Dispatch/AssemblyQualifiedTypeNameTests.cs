@@ -39,4 +39,14 @@ public class AssemblyQualifiedTypeNameTests
         Assert.IsNotNull(typeName.GenericParameters[1].GenericParameters[0].GenericParameters[1]);
         Assert.AreEqual("System.Boolean", typeName.GenericParameters[1].GenericParameters[0].GenericParameters[1].FullName);
     }
+
+    [TestMethod]
+    public void Parse_GenericTypeEmptyParams_EmptyArray()
+    {
+        var typeName = AssemblyQualifiedTypeName.Parse(typeof(Dictionary<,>).AssemblyQualifiedName);
+
+        Assert.AreEqual("System.Collections.Generic.Dictionary`2", typeName.FullName);
+        Assert.IsNotNull(typeName.GenericParameters.Length);
+        Assert.AreEqual(0, typeName.GenericParameters.Length);
+    }
 }
