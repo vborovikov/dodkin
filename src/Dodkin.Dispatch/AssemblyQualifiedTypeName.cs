@@ -80,7 +80,7 @@ sealed class AssemblyQualifiedTypeName : IParsable<AssemblyQualifiedTypeName>, I
         var publicKeyToken = string.Empty;
         var genericParameters = Array.Empty<AssemblyQualifiedTypeName>();
 
-        foreach (var typeNamePart in EnumerateParts(typeNameEnumerator.Current))
+        foreach (var typeNamePart in EnumerateTypeNameParts(typeNameEnumerator.Current))
         {
             if (typeNamePart.Kind == TypeNamePartKind.AssemblyName)
             {
@@ -142,7 +142,7 @@ sealed class AssemblyQualifiedTypeName : IParsable<AssemblyQualifiedTypeName>, I
         return assemblyQualifiedTypeName;
     }
 
-    private static TypeNamePartEnumerator EnumerateParts(ReadOnlySpan<char> typeName) => new(typeName);
+    private static TypeNamePartEnumerator EnumerateTypeNameParts(ReadOnlySpan<char> typeName) => new(typeName);
 
     private static TypeNameEnumerator EnumerateTypeNames(ReadOnlySpan<char> typeNames) => new(typeNames);
 
@@ -189,12 +189,12 @@ sealed class AssemblyQualifiedTypeName : IParsable<AssemblyQualifiedTypeName>, I
     /// </summary>
     private ref struct TypeNamePartEnumerator
     {
-        private PartEnumerator enumerator;
+        private PartEnumerator parts;
         private TypeNamePartKind kind;
 
         public TypeNamePartEnumerator(ReadOnlySpan<char> span)
         {
-            this.enumerator = new(span);
+            this.parts = new(span);
             this.Current = default;
             this.kind = TypeNamePartKind.Unknown;
         }
@@ -205,9 +205,9 @@ sealed class AssemblyQualifiedTypeName : IParsable<AssemblyQualifiedTypeName>, I
 
         public bool MoveNext()
         {
-            if (this.enumerator.MoveNext())
+            if (this.parts.MoveNext())
             {
-                this.Current = new(this.enumerator.Current, ++this.kind);
+                this.Current = new(this.parts.Current, ++this.kind);
                 return true;
             }
             return false;
@@ -219,21 +219,21 @@ sealed class AssemblyQualifiedTypeName : IParsable<AssemblyQualifiedTypeName>, I
     /// </summary>
     private ref struct TypeNameEnumerator
     {
-        private PartEnumerator enumerator;
+        private PartEnumerator parts;
 
         public TypeNameEnumerator(ReadOnlySpan<char> span)
         {
-            this.enumerator = new(
+            this.parts = new(
                 span.IsEmpty || span.IsWhiteSpace() ? ReadOnlySpan<char>.Empty :
                 span[0] == '[' && span[^1] == ']' ? span[1..^1] :
                 span);
         }
 
-        public ReadOnlySpan<char> Current => this.enumerator.Current;
+        public ReadOnlySpan<char> Current => this.parts.Current;
 
         public TypeNameEnumerator GetEnumerator() => this;
 
-        public bool MoveNext() => this.enumerator.MoveNext();
+        public bool MoveNext() => this.parts.MoveNext();
     }
 
     /// <summary>
