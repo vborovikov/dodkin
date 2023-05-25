@@ -116,9 +116,8 @@ public abstract class QueueOperator : IDisposable
             return bodyType;
 
         bodyType = Type.GetType(bodyTypeName, throwOnError: false);
-        if (bodyType is null)
+        if (bodyType is null && AssemblyQualifiedTypeName.TryParse(bodyTypeName, out var typeInfo))
         {
-            var typeInfo = new AssemblyQualifiedTypeName(bodyTypeName);
             var typeFullName = typeInfo.FullName;
 
             bodyType =

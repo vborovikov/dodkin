@@ -1,99 +1,240 @@
 ﻿namespace Dodkin.Dispatch;
 
-// Copyright Christophe Bertrand.
+using System.Diagnostics.CodeAnalysis;
 
-using System.Collections.Generic;
-using System.Linq;
-
-public class AssemblyQualifiedTypeName
+sealed class AssemblyQualifiedTypeName : IParsable<AssemblyQualifiedTypeName>, ISpanParsable<AssemblyQualifiedTypeName>
 {
-    private readonly List<AssemblyQualifiedTypeName> genericParameters;
+    private AssemblyQualifiedTypeName(string fullName, string assemblyName, string version, string culture, string publicKeyToken, AssemblyQualifiedTypeName[] genericParameters)
+    {
+        this.FullName = fullName;
+        this.AssemblyName = assemblyName;
+        this.Version = version;
+        this.Culture = culture;
+        this.PublicKeyToken = publicKeyToken;
+        this.GenericParameters = genericParameters;
+    }
 
-    public string AssemblyName { get; }
     public string FullName { get; }
-    public string ShortAssemblyName { get; }
+    public string AssemblyName { get; }
     public string Version { get; }
     public string Culture { get; }
     public string PublicKeyToken { get; }
-    public IEnumerable<AssemblyQualifiedTypeName> GenericParameters => this.genericParameters.AsReadOnly();
+    public AssemblyQualifiedTypeName[] GenericParameters { get; }
 
-    public AssemblyQualifiedTypeName(string typeName)
+    public static bool TryParse(ReadOnlySpan<char> typeName, [MaybeNullWhen(false)] out AssemblyQualifiedTypeName assemblyQualifiedTypeName)
     {
-        this.genericParameters = new List<AssemblyQualifiedTypeName>();
-
-        var index = -1;
-        var rootBlock = new Block();
-
-        var bcount = 0;
-        var currentBlock = rootBlock;
-        for (var i = 0; i < typeName.Length; ++i)
+        var typeNameEnumerator = EnumerateTypeNames(typeName);
+        if (!typeNameEnumerator.MoveNext())
         {
-            var c = typeName[i];
-            if (c == '[')
-            {
-                ++bcount;
-                var b = new Block() { iStart = i + 1, level = bcount, parentBlock = currentBlock };
-                currentBlock.innerBlocks.Add(b);
-                currentBlock = b;
-            }
-            else if (c == ']')
-            {
-                currentBlock.iEnd = i - 1;
-                if (typeName[currentBlock.iStart] != '[')
-                {
-                    currentBlock.parsedAssemblyQualifiedName = new AssemblyQualifiedTypeName(typeName.Substring(currentBlock.iStart, i - currentBlock.iStart));
-                    if (bcount == 2)
-                        this.genericParameters.Add(currentBlock.parsedAssemblyQualifiedName);
-                }
-                currentBlock = currentBlock.parentBlock;
-                --bcount;
-            }
-            else if (bcount == 0 && c == ',')
-            {
-                index = i;
-                break;
-            }
+            assemblyQualifiedTypeName = null!;
+            return false;
         }
 
-        this.FullName = typeName.Substring(0, index);
-        this.AssemblyName = typeName.Substring(index + 2);
+        var fullName = string.Empty;
+        var assemblyName = string.Empty;
+        var version = string.Empty;
+        var culture = string.Empty;
+        var publicKeyToken = string.Empty;
+        var genericParameters = Array.Empty<AssemblyQualifiedTypeName>();
 
-
-        var parts = this.AssemblyName.Split(',').Select(x => x.Trim()).ToList();
-        this.Version = LookForPairThenRemove(parts, "Version");
-        this.Culture = LookForPairThenRemove(parts, "Culture");
-        this.PublicKeyToken = LookForPairThenRemove(parts, "PublicKeyToken");
-        if (parts.Count > 0)
-            this.ShortAssemblyName = parts[0];
-    }
-
-    private static string LookForPairThenRemove(List<string> strings, string Name)
-    {
-        for (var istr = 0; istr < strings.Count; istr++)
+        foreach (var typeNamePart in EnumerateParts(typeNameEnumerator.Current))
         {
-            var s = strings[istr];
-            var i = s.IndexOf(Name);
-            if (i == 0)
+            if (typeNamePart.Kind == TypeNamePartKind.AssemblyName)
             {
-                var i2 = s.IndexOf('=');
-                if (i2 > 0)
+                assemblyName = typeNamePart.Span.ToString();
+            }
+            else if (typeNamePart.Kind == TypeNamePartKind.Version)
+            {
+                version = typeNamePart.Span.ToString();
+            }
+            else if (typeNamePart.Kind == TypeNamePartKind.Culture)
+            {
+                culture = typeNamePart.Span.ToString();
+            }
+            else if (typeNamePart.Kind == TypeNamePartKind.PublicKeyToken)
+            {
+                publicKeyToken = typeNamePart.Span.ToString();
+            }
+            else if (typeNamePart.Kind == TypeNamePartKind.FullName)
+            {
+                var fullNameEnd = typeNamePart.Span.IndexOf('[');
+                var genericParamCountStart = fullNameEnd > 0 ? typeNamePart.Span[..fullNameEnd].LastIndexOf('`') : -1;
+                if (genericParamCountStart > 0 &&
+                    int.TryParse(typeNamePart.Span[(genericParamCountStart + 1)..fullNameEnd], out var genericParamCount))
                 {
-                    var ret = s.Substring(i2 + 1);
-                    strings.RemoveAt(istr);
-                    return ret;
+                    fullName = typeNamePart.Span[..fullNameEnd].ToString();
+                    genericParameters = new AssemblyQualifiedTypeName[genericParamCount];
+                    genericParamCount = 0;
+                    foreach (var nestedTypeName in EnumerateTypeNames(typeNamePart.Span[fullNameEnd..]))
+                    {
+                        if (!TryParse(nestedTypeName, out var genericParameter))
+                        {
+                            assemblyQualifiedTypeName = null!;
+                            return false;
+                        }
+                        genericParameters[genericParamCount++] = genericParameter;
+                    }
+                }
+                else
+                {
+                    fullName = typeNamePart.Span.ToString();
                 }
             }
         }
-        return null;
+
+        assemblyQualifiedTypeName = new(fullName, assemblyName, version, culture, publicKeyToken, genericParameters);
+        return true;
     }
 
-    private class Block
+    public static AssemblyQualifiedTypeName Parse(ReadOnlySpan<char> typeName)
     {
-        public int iStart;
-        public int iEnd;
-        public int level;
-        public Block parentBlock;
-        public List<Block> innerBlocks = new();
-        public AssemblyQualifiedTypeName parsedAssemblyQualifiedName;
+        if (!TryParse(typeName, out var assemblyQualifiedTypeName))
+            throw new FormatException();
+
+        return assemblyQualifiedTypeName;
+    }
+
+    private static TypeNamePartEnumerator EnumerateParts(ReadOnlySpan<char> typeName) => new(typeName);
+
+    private static TypeNameEnumerator EnumerateTypeNames(ReadOnlySpan<char> typeNames) => new(typeNames);
+
+    public static AssemblyQualifiedTypeName Parse(string s, IFormatProvider? provider) =>
+        Parse(s.AsSpan(), provider);
+
+    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out AssemblyQualifiedTypeName result) =>
+        TryParse(s.AsSpan(), provider, out result);
+
+    public static AssemblyQualifiedTypeName Parse(ReadOnlySpan<char> s, IFormatProvider? provider) =>
+        Parse(s);
+
+    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out AssemblyQualifiedTypeName result) =>
+        TryParse(s, out result);
+
+    private enum TypeNamePartKind
+    {
+        Unknown,
+        FullName,
+        AssemblyName,
+        Version,
+        Culture,
+        PublicKeyToken,
+    }
+
+    private readonly ref struct TypeNamePart
+    {
+        public TypeNamePart(ReadOnlySpan<char> span, TypeNamePartKind kind)
+        {
+            this.Span = span;
+            this.Kind = kind;
+        }
+
+        public ReadOnlySpan<char> Span { get; }
+        public TypeNamePartKind Kind { get; }
+    }
+
+    /// <summary>
+    /// Enumerates the parts of an assembly quailified type name.
+    /// </summary>
+    private ref struct TypeNamePartEnumerator
+    {
+        private ReadOnlySpan<char> span;
+        private TypeNamePartKind kind;
+
+        public TypeNamePartEnumerator(ReadOnlySpan<char> span)
+        {
+            this.span = span;
+            this.Current = default;
+            this.kind = TypeNamePartKind.Unknown;
+        }
+
+        public TypeNamePart Current { get; private set; }
+
+        public TypeNamePartEnumerator GetEnumerator() => this;
+
+        public bool MoveNext()
+        {
+            if (this.span.IsEmpty)
+                return false;
+
+            var brackets = 0;
+            for (var i = 0; i != this.span.Length; ++i)
+            {
+                if (this.span[i] == '[')
+                {
+                    ++brackets;
+                }
+                else if (this.span[i] == ']')
+                {
+                    --brackets;
+                }
+                else if (this.span[i] == ',' && brackets == 0)
+                {
+                    this.Current = new(this.span[..i], ++this.kind);
+
+                    this.span = this.span[i..];
+                    var n = this.span.IndexOfAnyExcept(',', ' ');
+                    this.span = n > 0 ? this.span[n..] : ReadOnlySpan<char>.Empty;
+
+                    return true;
+                }
+            }
+
+            this.Current = new(this.span, ++this.kind);
+            this.span = ReadOnlySpan<char>.Empty;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Enumerates the type names respecting the square brackets.
+    /// </summary>
+    private ref struct TypeNameEnumerator
+    {
+        private ReadOnlySpan<char> span;
+
+        public TypeNameEnumerator(ReadOnlySpan<char> span)
+        {
+            this.span =
+                span.IsEmpty || span.IsWhiteSpace() ? ReadOnlySpan<char>.Empty :
+                span[0] == '[' && span[^1] == ']' ? span[1..^1] :
+                span;
+        }
+
+        public ReadOnlySpan<char> Current { get; private set; }
+
+        public TypeNameEnumerator GetEnumerator() => this;
+
+        public bool MoveNext()
+        {
+            if (this.span.IsEmpty)
+                return false;
+
+            var brackets = 0;
+            for (var i = 0; i != this.span.Length; ++i)
+            {
+                if (this.span[i] == '[')
+                {
+                    ++brackets;
+                }
+                else if (this.span[i] == ']')
+                {
+                    --brackets;
+                }
+                else if (this.span[i] == ',' && brackets == 0)
+                {
+                    this.Current = this.span[..i];
+
+                    this.span = this.span[i..];
+                    var n = this.span.IndexOfAnyExcept(',', ' ');
+                    this.span = n > 0 ? this.span[n..] : ReadOnlySpan<char>.Empty;
+
+                    return true;
+                }
+            }
+
+            this.Current = this.span;
+            this.span = ReadOnlySpan<char>.Empty;
+            return true;
+        }
     }
 }
