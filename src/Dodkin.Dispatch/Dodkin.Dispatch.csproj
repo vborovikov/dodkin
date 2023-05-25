@@ -30,7 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dodkin" Version="0.3.5-beta" />
+    <PackageReference Include="Dodkin" Version="0.3.6-beta" />
     <PackageReference Include="RelayTk" Version="2.4.0" />
   </ItemGroup>
 </Project>
