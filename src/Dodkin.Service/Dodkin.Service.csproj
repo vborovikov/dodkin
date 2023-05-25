@@ -2,33 +2,26 @@
 
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
-    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
     <Nullable>warnings</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>DodkinService</UserSecretsId>
     <AssemblyName>DodkinSvc</AssemblyName>
-    <VersionPrefix>0.3.6</VersionPrefix>
-    <VersionSuffix>beta</VersionSuffix>
   </PropertyGroup>
 
   <PropertyGroup>
-    <Authors>Vladislav Borovikov</Authors>
-    <Copyright>Copyright © 2023 Vladislav Borovikov</Copyright>
     <Title>Dodkin Service</Title>
-    <AssemblyTitle>Dodkin Service</AssemblyTitle>
-    <Product>Dodkin's Job</Product>
     <Description>Dodkin's Job</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.0.123" />
+    <PackageReference Include="Dodkin" Version="0.3.5-beta" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.1.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="7.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Dodkin\Dodkin.csproj" />
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>Dodkin.Tests</_Parameter1>
     </AssemblyAttribute>
