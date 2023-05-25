@@ -1,4 +1,4 @@
-﻿namespace Dodkin.Tests
+﻿namespace Dodkin.Tests.Messaging
 {
     using System.Text.Json;
     using Microsoft.VisualStudio.TestTools.UnitTesting;

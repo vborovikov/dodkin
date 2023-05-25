@@ -1,4 +1,4 @@
-﻿namespace Dodkin.Tests;
+﻿namespace Dodkin.Tests.Service;
 
 using System.Text.Json;
 using Dodkin.Service;
@@ -32,14 +32,14 @@ public class RecorderTests
     }
 
     [ClassInitialize]
-    public static void AssemblyInit(TestContext context)
+    public static void ClassInitialize(TestContext context)
     {
         MessageQueue.TryCreate(testQueueName);
         MessageQueue.TryCreate(testServiceQueueName);
     }
 
     [ClassCleanup]
-    public static void AssemblyCleanup()
+    public static void ClassCleanup()
     {
         MessageQueue.TryDelete(testQueueName);
         MessageQueue.TryDelete(testServiceQueueName);
@@ -66,11 +66,7 @@ public class RecorderTests
         };
 
         using var writer = new MessageQueueWriter(futureQueueName);
-        using (var qtx = new QueueTransaction())
-        {
-            await writer.WriteAsync(message, qtx);
-            qtx.Commit();
-        }
+        await writer.WriteAsync(message, QueueTransaction.SingleMessage);
 
         using var reader = new MessageQueueReader(testServiceQueueName);
         using var futureMessage = await reader.ReadAsync(MessageProperty.All);

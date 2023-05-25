@@ -1,4 +1,4 @@
-﻿namespace Dodkin.Tests;
+﻿namespace Dodkin.Tests.Messaging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using Tools;
