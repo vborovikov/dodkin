@@ -4,6 +4,10 @@ using System.Diagnostics.CodeAnalysis;
 
 sealed class AssemblyQualifiedTypeName : IParsable<AssemblyQualifiedTypeName>, ISpanParsable<AssemblyQualifiedTypeName>
 {
+#pragma warning disable CS8618
+    private AssemblyQualifiedTypeName() { }
+#pragma warning restore CS8618
+
     private AssemblyQualifiedTypeName(string fullName, string assemblyName, string version, string culture, string publicKeyToken, AssemblyQualifiedTypeName[] genericParameters)
     {
         this.FullName = fullName;
