@@ -54,10 +54,12 @@ sealed class Worker : BackgroundService
 
         await foreach (var message in appQueue.ReadAllAsync(MessageProperty.All, stoppingToken))
         {
+            //todo: validate the message
             // store the message
             await this.ms.AddAsync(MessageRecord.From(message), stoppingToken);
             // signal for delivery
             this.msgEvent.Set();
+            //todo: send ACK or NACK to the sender
         }
     }
 
