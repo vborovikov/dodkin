@@ -1,5 +1,7 @@
 ﻿namespace Dodkin
 {
+    using System.Diagnostics.CodeAnalysis;
+
     public enum QueueType
     {
         Private,
@@ -20,8 +22,14 @@
     /// <summary>
     /// Represents the message queue name, be it either a format name or a path name.
     /// </summary>
-    public abstract class MessageQueueName
+    public abstract class MessageQueueName : IEquatable<MessageQueueName>, IEquatable<string>,
+        IParsable<MessageQueueName>, ISpanParsable<MessageQueueName>
     {
+        private const string IllegalQueueNameChars = "=:\r\n+,\"";
+        protected const string LocalComputer = ".";
+        protected const string PrivateQueueMoniker = "private$";
+        protected const string SystemQueueMoniker = "system$";
+
         public abstract FormatType Format { get; }
 
         public abstract string QueueName { get; }
@@ -32,27 +40,144 @@
 
         public abstract string PathName { get; }
 
-        public static MessageQueueName FromPathName(string pathName)
+        public static implicit operator string(MessageQueueName queueName) => queueName.FormatName;
+
+        public sealed override string ToString() => this.FormatName;
+
+        public sealed override int GetHashCode()
         {
-            ArgumentNullException.ThrowIfNullOrEmpty(pathName);
-
-            var parts = pathName.Split('\\', StringSplitOptions.RemoveEmptyEntries);
-            var isPrivate = parts.Length == 3 && String.Equals(parts[1], "private$", StringComparison.OrdinalIgnoreCase);
-            var computerName = parts[0];
-            if (computerName == ".")
-                computerName = Environment.MachineName;
-
-            return new DirectFormatName(parts[^1], computerName, isPrivate);
+            return HashCode.Combine(this.Format, this.QueueName, this.QueueType, GetHashCodeOverride());
         }
 
-        public static MessageQueueName FromFormatName(string formatName)
+        protected abstract int GetHashCodeOverride();
+
+        public sealed override bool Equals(object? obj) => obj switch
         {
-            ArgumentNullException.ThrowIfNullOrEmpty(formatName);
+            MessageQueueName other => Equals(other),
+            string str => Equals(str),
+            _ => false
+        };
 
-            if (formatName.StartsWith("DIRECT=", StringComparison.OrdinalIgnoreCase))
-                return DirectFormatName.Parse(formatName);
+        public bool Equals(MessageQueueName? other)
+        {
+            if (other is null)
+                return false;
 
-            throw new NotSupportedException();
+            return
+                this.QueueType == other.QueueType &&
+                this.Format == other.Format &&
+                string.Equals(this.QueueName, other.QueueName, StringComparison.OrdinalIgnoreCase) &&
+                EqualsOverride(other);
+        }
+
+        protected abstract bool EqualsOverride(MessageQueueName other);
+
+        public bool Equals(string? other) => TryParse(other, out var otherName) && Equals(otherName);
+
+        public static MessageQueueName Parse(ReadOnlySpan<char> s)
+        {
+            if (TryParse(s, out var result))
+                return result;
+
+            throw new FormatException();
+        }
+
+        public static bool TryParse(ReadOnlySpan<char> s, [MaybeNullWhen(false)] out MessageQueueName result)
+        {
+            result = default;
+            if (s.IsEmpty || s.IsWhiteSpace())
+                return false;
+
+            if (DirectFormatName.TryParse(s, out var directFormatName))
+            {
+                result = directFormatName;
+                return true;
+            }
+
+            var pathParts = new PathEnumerator(s);
+            if (!pathParts.MoveNext())
+                return false;
+
+            var computerName = pathParts.Current;
+            if (computerName.IsEmpty)
+                return false;
+            if (computerName.Equals(PrivateQueueMoniker, StringComparison.OrdinalIgnoreCase))
+            {
+                computerName = LocalComputer;
+            }
+            else if (!pathParts.MoveNext())
+            {
+                // just one part, consider it a private queue name
+                if (computerName is not ['.'] && computerName.IndexOfAny(IllegalQueueNameChars) < 0)
+                {
+                    result = new DirectFormatName(computerName.ToString(), LocalComputer, isPrivate: true);
+                    return true;
+                }
+
+                return false;
+            }
+
+            var queueType = pathParts.Current;
+            if (queueType.IsEmpty)
+                return false;
+            var isPrivate = pathParts.MoveNext() ? queueType.Equals(PrivateQueueMoniker, StringComparison.OrdinalIgnoreCase) : false;
+            
+            var queueName = pathParts.Current;
+            if (queueName.IsEmpty || pathParts.MoveNext() || queueName.IndexOfAny(IllegalQueueNameChars) > 0)
+                return false;
+
+            result = new DirectFormatName(queueName.ToString(), computerName.ToString(), isPrivate);
+            return true;
+        }
+
+        /// <inheritdoc />
+        public static MessageQueueName Parse(ReadOnlySpan<char> s, IFormatProvider? provider) => Parse(s);
+
+        /// <inheritdoc />
+        public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider,
+            [MaybeNullWhen(false)] out MessageQueueName result) => TryParse(s, out result);
+
+        /// <inheritdoc />
+        public static MessageQueueName Parse(string s, IFormatProvider? provider) => Parse(s);
+
+        /// <inheritdoc />
+        public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider,
+            [MaybeNullWhen(false)] out MessageQueueName result) => TryParse(s, out result);
+
+        private ref struct PathEnumerator
+        {
+            private ReadOnlySpan<char> span;
+            private ReadOnlySpan<char> current;
+
+            public PathEnumerator(ReadOnlySpan<char> span)
+            {
+                this.span = span;
+                this.current = default;
+            }
+
+            public readonly ReadOnlySpan<char> Current => this.current;
+
+            public PathEnumerator GetEnumerator() => this;
+
+            public bool MoveNext()
+            {
+                var remaining = this.span;
+                if (remaining.IsEmpty)
+                    return false;
+
+                var pos = remaining.IndexOf('\\');
+                if (pos > 0)
+                {
+                    this.current = remaining[..pos];
+                    this.span = ++pos < remaining.Length ? remaining[pos..] : default;
+
+                    return true;
+                }
+
+                this.current = remaining;
+                this.span = default;
+                return pos != 0;
+            }
         }
     }
 
@@ -67,6 +192,8 @@
 
     sealed class DirectFormatName : MessageQueueName
     {
+        private const string FormatMoniker = "DIRECT=";
+
         private readonly ComputerAddressProtocol protocol;
         private readonly string address;
 
@@ -96,10 +223,10 @@
             get
             {
                 if (this.QueueType == QueueType.Private)
-                    return $@"DIRECT={this.protocol}:{this.address}\PRIVATE$\{this.QueueName}";
+                    return $@"{FormatMoniker}{this.protocol}:{this.address}\{PrivateQueueMoniker}\{this.QueueName}";
 
                 var separator = this.protocol == ComputerAddressProtocol.HTTP || this.protocol == ComputerAddressProtocol.HTTPS ? '/' : '\\';
-                return $"DIRECT={this.protocol}:{this.address}{separator}{this.QueueName}";
+                return $"{FormatMoniker}{this.protocol}:{this.address}{separator}{this.QueueName}";
             }
         }
 
@@ -108,7 +235,7 @@
             get
             {
                 if (this.QueueType == QueueType.Private)
-                    return $@"{this.address}\PRIVATE$\{this.QueueName}";
+                    return $@"{this.address}\{PrivateQueueMoniker}\{this.QueueName}";
 
                 if (this.protocol == ComputerAddressProtocol.HTTP || this.protocol == ComputerAddressProtocol.HTTPS)
                     return $"{this.protocol}:{this.address}/{this.QueueName}";
@@ -117,38 +244,55 @@
             }
         }
 
-        public override string ToString() => this.FormatName;
+        protected override int GetHashCodeOverride() => HashCode.Combine(this.protocol, this.address);
 
-        public static DirectFormatName Parse(ReadOnlySpan<char> formatName)
+        protected override bool EqualsOverride(MessageQueueName other) =>
+            other is DirectFormatName directFormatName && this.protocol == directFormatName.protocol &&
+            string.Equals(this.address, directFormatName.address, StringComparison.OrdinalIgnoreCase);
+
+        public static bool TryParse(ReadOnlySpan<char> formatName, [MaybeNullWhen(false)] out DirectFormatName result)
         {
+            result = default;
             if (formatName.IsEmpty || formatName.IsWhiteSpace())
-                throw new ArgumentNullException(nameof(formatName));
-            if (!formatName.StartsWith("DIRECT=", StringComparison.OrdinalIgnoreCase))
-                throw new FormatException();
+                return false;
+            if (!formatName.StartsWith(FormatMoniker, StringComparison.OrdinalIgnoreCase))
+                return false;
 
-            formatName = formatName[7..]; // skip "DIRECT="
+            formatName = formatName[FormatMoniker.Length..]; // skip "DIRECT="
             var separatorPos = formatName.IndexOf(':');
             if (separatorPos < 0)
-                throw new FormatException();
+                return false;
 
             var protocol = formatName[..separatorPos];
             var namePos = formatName.LastIndexOfAny("\\/");
+            var address = ReadOnlySpan<char>.Empty;
+            var queueName = ReadOnlySpan<char>.Empty;
             if (namePos < 0)
-                throw new FormatException();
-            var address = formatName[(separatorPos + 1)..namePos];
-            var queueName = formatName[(namePos + 1)..];
-            
-            var queueType = address.EndsWith("private$", StringComparison.OrdinalIgnoreCase) ? QueueType.Private :
-                queueName.StartsWith("system$", StringComparison.OrdinalIgnoreCase) ? QueueType.System : QueueType.Public;
+            {
+                // just one part, consider it a queue name
+                queueName = formatName[(separatorPos + 1)..];
+            }
+            else
+            {
+                address = formatName[(separatorPos + 1)..namePos];
+                queueName = formatName[(namePos + 1)..];
+            }
+            if (queueName.IsEmpty)
+                return false;
+
+            var queueType = address.EndsWith(PrivateQueueMoniker, StringComparison.OrdinalIgnoreCase) ? QueueType.Private :
+                queueName.StartsWith(SystemQueueMoniker, StringComparison.OrdinalIgnoreCase) ? QueueType.System : QueueType.Public;
             if (queueType == QueueType.Private)
             {
+                // cut 'private$' part
                 address = address[..^9];
             }
 
             var protocolParsed = Enum.Parse<ComputerAddressProtocol>(protocol, ignoreCase: true);
-            var addressStr = address.Equals(".", StringComparison.OrdinalIgnoreCase) ? Environment.MachineName : address.ToString();
+            var addressStr = address.IsEmpty ? LocalComputer : address.ToString();
 
-            return new DirectFormatName(queueName.ToString(), queueType, protocolParsed, addressStr);
+            result = new DirectFormatName(queueName.ToString(), queueType, protocolParsed, addressStr);
+            return true;
         }
     }
 }

@@ -124,8 +124,11 @@
                             MessageQueueException.ThrowOnError(hr);
 
                             formatNameBuilder.Length = formatNameLength - 1;
-                            this.queueName = MessageQueueName.FromFormatName(formatNameBuilder.ToString());
-                            this.queueNameValid = true;
+                            if (MessageQueueName.TryParse(formatNameBuilder.ToString(), out var parsedQueueName))
+                            {
+                                this.queueName = parsedQueueName;
+                                this.queueNameValid = true;
+                            }
 
                             break;
                         }

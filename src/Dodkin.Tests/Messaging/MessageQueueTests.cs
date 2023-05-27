@@ -7,19 +7,18 @@ using System.Text.Json;
 [TestClass]
 public class MessageQueueTests
 {
-    private const string TestQueuePathName = @".\private$\dodkin-test";
-    private static MessageQueueName testQueueName = MessageQueueName.FromPathName(TestQueuePathName);
+    private static MessageQueueName testQueueName = MessageQueueName.Parse(@".\private$\dodkin-test");
 
     private record Payload(string Data);
 
-    [AssemblyInitialize]
-    public static void AssemblyInit(TestContext context)
+    [ClassInitialize]
+    public static void ClassInitialize(TestContext context)
     {
         testQueueName = MessageQueue.TryCreate(testQueueName);
     }
 
-    [AssemblyCleanup]
-    public static void AssemblyCleanup()
+    [ClassCleanup]
+    public static void ClassCleanup()
     {
         MessageQueue.TryDelete(testQueueName);
     }
@@ -30,7 +29,7 @@ public class MessageQueueTests
         try
         {
             var factory = new MessageQueueFactory();
-            var reader = factory.CreateReader(MessageQueueName.FromPathName(@".\private$\doesnotexist")) as MessageQueueReader;
+            var reader = factory.CreateReader(MessageQueueName.Parse(@".\private$\doesnotexist")) as MessageQueueReader;
             Assert.IsNotNull(reader);
             _ = reader.Name;
         }

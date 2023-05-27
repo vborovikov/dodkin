@@ -20,9 +20,9 @@ public class RecorderTests
         };
     }
 
-    private static readonly MessageQueueName testQueueName = MessageQueueName.FromPathName(@".\private$\dodkin-test");
-    private static readonly MessageQueueName testServiceQueueName = MessageQueueName.FromPathName(@".\private$\dodkin-service-test");
-    private static readonly MessageQueueName futureQueueName = MessageQueueName.FromPathName(@".\private$\future");
+    private static readonly MessageQueueName testQueueName = MessageQueueName.Parse(@".\private$\dodkin-test");
+    private static readonly MessageQueueName testServiceQueueName = MessageQueueName.Parse(@".\private$\dodkin-service-test");
+    private static readonly MessageQueueName futureQueueName = MessageQueueName.Parse(@".\private$\future");
 
     private record Payload(string Data);
 

@@ -37,10 +37,10 @@
             using var packedQueueProps = queueInfo.Properties.Pack();
             var result = CreateQueue(queueInfo, out var formatName);
             if (result == MQ.HR.ERROR_QUEUE_EXISTS)
-                return MessageQueueName.FromFormatName(PathToFormatName(queueName.PathName));
+                return MessageQueueName.Parse(PathToFormatName(queueName.PathName));
 
             MessageQueueException.ThrowOnError(result);
-            return MessageQueueName.FromFormatName(formatName);
+            return MessageQueueName.Parse(formatName);
         }
 
         /// <summary>
