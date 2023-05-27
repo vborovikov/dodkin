@@ -25,7 +25,7 @@ static class DbTypes
     {
         public override MessageQueueName Parse(object value)
         {
-            return MessageQueueName.FromFormatName((string)value);
+            return MessageQueueName.Parse((string)value);
         }
 
         public override void SetValue(IDbDataParameter parameter, MessageQueueName value)

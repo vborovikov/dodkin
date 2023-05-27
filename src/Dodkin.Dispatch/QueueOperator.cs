@@ -30,8 +30,8 @@ public abstract class QueueOperator : IDisposable
 
     protected QueueOperator(string inputQueuePath, string outputQueuePath, TimeSpan? timeout = null)
     {
-        this.inputQueue = new MessageQueueReader(MessageQueueName.FromPathName(inputQueuePath));
-        this.outputQueue = new MessageQueueWriter(MessageQueueName.FromPathName(outputQueuePath));
+        this.inputQueue = new MessageQueueReader(MessageQueueName.Parse(inputQueuePath));
+        this.outputQueue = new MessageQueueWriter(MessageQueueName.Parse(outputQueuePath));
         this.inputQueueFormatName = this.inputQueue.Name.FormatName;
 
         this.timeout = timeout ?? DefaultTimeout;

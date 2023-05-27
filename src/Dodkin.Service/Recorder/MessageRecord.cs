@@ -15,7 +15,7 @@ record MessageRecord
         return new()
         {
             MessageId = message.Id,
-            Destination = MessageQueueName.FromFormatName(message.ResponseQueue),
+            Destination = MessageQueueName.Parse(message.ResponseQueue),
             Message = message,
             DueTime = DateTimeOffset.FromUnixTimeSeconds(message.AppSpecific),
         };

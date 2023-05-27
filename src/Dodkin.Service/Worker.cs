@@ -25,7 +25,7 @@ sealed class Worker : BackgroundService
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        var applicationQueueName = MessageQueueName.FromPathName(this.options.ApplicationQueue);
+        var applicationQueueName = MessageQueueName.Parse(this.options.ApplicationQueue);
         try
         {
             if (!MessageQueue.Exists(applicationQueueName))
@@ -49,7 +49,7 @@ sealed class Worker : BackgroundService
 
     private async Task ReceiveMessagesAsync(CancellationToken stoppingToken)
     {
-        var appQueue = this.mq.CreateReader(MessageQueueName.FromPathName(this.options.ApplicationQueue));
+        var appQueue = this.mq.CreateReader(MessageQueueName.Parse(this.options.ApplicationQueue));
         this.log.LogInformation("Worker started to receive messages at: {time}", DateTimeOffset.Now);
 
         await foreach (var message in appQueue.ReadAllAsync(MessageProperty.All, stoppingToken))
