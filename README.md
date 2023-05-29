@@ -26,7 +26,8 @@ Once you have referenced the library from NuGet, you can start using its classes
 using Dodkin;
 
 // Create a new message queue
-var queueName = MessageQueue.TryCreate(MessageQueueName.Parse(".\\private$\\myqueue"));
+var queueName = MessageQueueName.Parse(".\\private$\\myqueue");
+MessageQueue.Create(queueName);
 var queueFactory = new MessageQueueFactory();
 
 // Create a new message
