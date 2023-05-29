@@ -11,8 +11,7 @@ record ServiceOptions
 {
     public const string ServiceName = "Dodkin";
 
-    public string ApplicationQueue { get; init; }
-    public string DeadLetterQueue { get; init; }
+    public MessageEndpoint Endpoint { get; init; }
 }
 
 static class Program

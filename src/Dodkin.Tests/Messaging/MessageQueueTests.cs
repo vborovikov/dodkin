@@ -14,13 +14,13 @@ public class MessageQueueTests
     [ClassInitialize]
     public static void ClassInitialize(TestContext context)
     {
-        testQueueName = MessageQueue.TryCreate(testQueueName);
+        MessageQueue.Create(testQueueName);
     }
 
     [ClassCleanup]
     public static void ClassCleanup()
     {
-        MessageQueue.TryDelete(testQueueName);
+        MessageQueue.Delete(testQueueName);
     }
 
     [TestMethod]

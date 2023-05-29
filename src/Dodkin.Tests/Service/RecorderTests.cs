@@ -16,13 +16,17 @@ public class RecorderTests
     {
         public ServiceOptions Value => new ServiceOptions
         {
-            ApplicationQueue = futureQueueName.PathName,
+            Endpoint = new MessageEndpoint
+            {
+                ApplicationQueue = futureQN,
+            }
         };
     }
 
-    private static readonly MessageQueueName testQueueName = MessageQueueName.Parse(@".\private$\dodkin-test");
-    private static readonly MessageQueueName testServiceQueueName = MessageQueueName.Parse(@".\private$\dodkin-service-test");
-    private static readonly MessageQueueName futureQueueName = MessageQueueName.Parse(@".\private$\future");
+    private static readonly MessageQueueName testAppQN = MessageQueueName.Parse(@".\private$\dodkin-service-test");
+    private static readonly MessageQueueName testAdminQN = MessageQueueName.Parse(@".\private$\dodkin-service-test-admin");
+    private static readonly MessageQueueName futureQN = MessageQueueName.Parse(@".\private$\future");
+    private static Worker worker;
 
     private record Payload(string Data);
 
@@ -32,50 +36,52 @@ public class RecorderTests
     }
 
     [ClassInitialize]
-    public static void ClassInitialize(TestContext context)
+    public static async Task ClassInitialize(TestContext context)
     {
-        MessageQueue.TryCreate(testQueueName);
-        MessageQueue.TryCreate(testServiceQueueName);
-    }
+        MessageQueue.Create(testAppQN);
+        //MessageQueue.Create(testAdminQN);
 
-    [ClassCleanup]
-    public static void ClassCleanup()
-    {
-        MessageQueue.TryDelete(testQueueName);
-        MessageQueue.TryDelete(testServiceQueueName);
-    }
-
-    [TestMethod]
-    public async Task FutureDelivery_FutureMessage_Delivered()
-    {
-        var cts = new CancellationTokenSource();
-        var worker = new Worker(new WorkerOptions(), new MessageQueueFactory(),
+        worker = new Worker(new WorkerOptions(), new MessageQueueFactory(),
             new MessageStore(
                 new DbFactory(SqlClientFactory.Instance, @"Data Source=(LocalDB)\SqlLocalDB15;Initial Catalog=Dodkin;Integrated Security=SSPI;"),
                 new Logger<MessageStore>(new LoggerFactory())),
             new Logger<Worker>(new LoggerFactory()));
 
-        _ = worker.StartAsync(cts.Token);
+        await worker.StartAsync(default);
+    }
 
+    [ClassCleanup]
+    public static async Task ClassCleanup()
+    {
+        //MessageQueue.Delete(testAdminQN);
+        MessageQueue.Delete(testAppQN);
+
+        await worker.StopAsync(default);
+    }
+
+    [TestMethod]
+    public async Task FutureDelivery_FutureMessage_Delivered()
+    {
         var payload = new Payload("test");
         var message = new Message(JsonSerializer.SerializeToUtf8Bytes(payload))
         {
             Label = "test",
             AppSpecific = (uint)DateTimeOffset.Now.AddSeconds(5).ToUnixTimeSeconds(),
-            ResponseQueue = testServiceQueueName.FormatName,
+            ResponseQueue = testAppQN,
+            AdministrationQueue = testAdminQN,
+            Acknowledgment = MessageAcknowledgment.FullReceive,
+            TimeToReachQueue = TimeSpan.FromSeconds(5),
+            TimeToBeReceived = TimeSpan.FromSeconds(5),
         };
 
-        using var writer = new MessageQueueWriter(futureQueueName);
-        await writer.WriteAsync(message, QueueTransaction.SingleMessage);
+        using var writer = new MessageQueueWriter(futureQN);
+        writer.Write(message, QueueTransaction.SingleMessage);
 
-        using var reader = new MessageQueueReader(testServiceQueueName);
+        using var reader = new MessageQueueReader(testAppQN);
         using var futureMessage = await reader.ReadAsync(MessageProperty.All);
 
         Assert.AreEqual(message.Label, futureMessage.Label);
         var futurePayload = JsonSerializer.Deserialize<Payload>(futureMessage.Body);
         Assert.AreEqual(payload, futurePayload);
-
-        await worker.StopAsync(cts.Token);
-        cts.Cancel();
     }
 }

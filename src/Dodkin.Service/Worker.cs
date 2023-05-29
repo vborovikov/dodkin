@@ -25,7 +25,7 @@ sealed class Worker : BackgroundService
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        var applicationQueueName = MessageQueueName.Parse(this.options.ApplicationQueue);
+        var applicationQueueName = this.options.Endpoint.ApplicationQueue;
         try
         {
             if (!MessageQueue.Exists(applicationQueueName))
@@ -49,17 +49,39 @@ sealed class Worker : BackgroundService
 
     private async Task ReceiveMessagesAsync(CancellationToken stoppingToken)
     {
-        var appQueue = this.mq.CreateReader(MessageQueueName.Parse(this.options.ApplicationQueue));
+        var appQueue = this.mq.CreateSorter(this.options.Endpoint.ApplicationQueue);
         this.log.LogInformation("Worker started to receive messages at: {time}", DateTimeOffset.Now);
 
-        await foreach (var message in appQueue.ReadAllAsync(MessageProperty.All, stoppingToken))
+        while (!stoppingToken.IsCancellationRequested)
         {
-            //todo: validate the message
-            // store the message
-            await this.ms.AddAsync(MessageRecord.From(message), stoppingToken);
-            // signal for delivery
-            this.msgEvent.Set();
-            //todo: send ACK or NACK to the sender
+            var peekMessage = await appQueue.PeekAsync(MessageProperty.LookupId | MessageRecord.RequiredProperties,
+                cancellationToken: stoppingToken);
+
+            using var tx = new QueueTransaction();
+            try
+            {
+                if (MessageRecord.Validate(peekMessage))
+                {
+                    var message = appQueue.Read(peekMessage.LookupId, MessageProperty.All, tx);
+                    // store the message
+                    await this.ms.AddAsync(MessageRecord.From(message), stoppingToken);
+                    // signal for delivery
+                    this.msgEvent.Set();
+                }
+                else
+                {
+                    appQueue.Reject(peekMessage.LookupId);
+                    this.log.LogWarning("Worker rejected message {MessageId}", peekMessage.Id);
+                }
+                // ACK message
+                tx.Commit();
+            }
+            catch (Exception x)
+            {
+                this.log.LogError(x, "Worker failed to receive message {MessageId}", peekMessage.Id);
+                // NACK message
+                tx.Abort();
+            }
         }
     }
 
