@@ -157,6 +157,12 @@
     }
 
     /// <summary>
+    /// Represents the lookup identifier of the message.
+    /// </summary>
+    /// <param name="Value">The lookup identifier value.</param>
+    public readonly record struct MessageLookupId(ulong Value);
+
+    /// <summary>
     /// Describes a set of message properties.
     /// </summary>
     [JsonConverter(typeof(MessageJsonConverter))]
@@ -309,7 +315,7 @@
 
         public MessageId TransactionId => this.properties.GetValue<MessageId>(MQ.PROPID.M.XACTID);
 
-        public ulong LookupId => this.properties.GetValue<ulong>(MQ.PROPID.M.LOOKUPID);
+        public MessageLookupId LookupId => new(this.properties.GetValue<ulong>(MQ.PROPID.M.LOOKUPID));
 
         public uint TransactionAbortCount => this.properties.GetValue<uint>(MQ.PROPID.M.ABORT_COUNT);
 

@@ -147,5 +147,33 @@
                 yield return message;
             }
         }
+
+        internal unsafe Message Receive(MessageLookupId lookupId, LookupAction action, MessageProperty properties, QueueTransaction? transaction)
+        {
+            using var packedProperties = new MessageProperties(properties).Pack();
+            while (true)
+            {
+                var result = transaction.TryGetHandle(out var transactionHandle) ?
+                    MQ.ReceiveMessageByLookupId(this.cnn.ReadHandle, lookupId.Value, action, packedProperties, null, null, transactionHandle) :
+                    MQ.ReceiveMessageByLookupId(this.cnn.ReadHandle, lookupId.Value, action, packedProperties, null, null, transaction.InternalTransaction);
+
+                if (MQ.IsBufferOverflow(result))
+                {
+                    packedProperties.Adjust(result);
+                    continue;
+                }
+                else if (MQ.IsStaleHandle(result))
+                {
+                    this.cnn.Close();
+                    continue;
+                }
+                else
+                {
+                    MessageQueueException.ThrowOnError(result);
+                }
+
+                return packedProperties.Unpack<MessageProperties>();
+            }
+        }
     }
 }

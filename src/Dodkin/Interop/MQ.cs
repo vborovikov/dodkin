@@ -48,13 +48,13 @@ namespace Dodkin.Interop
         public static extern HR CreateCursor(QueueHandle handle, out QueueCursorHandle cursorHandle);
 
         [DllImport(MQRT, EntryPoint = "MQMarkMessageRejected")]
-        public static extern HR MarkMessageRejected(QueueHandle handle, long lookupId);
+        public static extern HR MarkMessageRejected(QueueHandle handle, ulong lookupId);
 
         [DllImport(MQRT, EntryPoint = "MQMoveMessage")]
-        public static extern HR MoveMessage(QueueHandle sourceQueue, QueueHandle targetQueue, long lookupId, IntPtr transaction);
+        public static extern HR MoveMessage(QueueHandle sourceQueue, QueueHandle targetQueue, ulong lookupId, IntPtr transaction);
 
         [DllImport(MQRT, EntryPoint = "MQMoveMessage")]
-        public static extern HR MoveMessage(QueueHandle sourceQueue, QueueHandle targetQueue, long lookupId, ITransaction transaction); //MSMQ internal transaction
+        public static extern HR MoveMessage(QueueHandle sourceQueue, QueueHandle targetQueue, ulong lookupId, ITransaction transaction);
 
         [DllImport(MQRT, EntryPoint = "MQPurgeQueue")]
         public static extern HR PurgeQueue(QueueHandle sourceQueue);
@@ -79,7 +79,7 @@ namespace Dodkin.Interop
             NativeOverlapped* overlapped,
             ReceiveCallback? receiveCallback,
             QueueCursorHandle cursorHandle,
-            ITransaction transaction); //MSMQ internal transaction
+            ITransaction transaction);
 
         [DllImport(MQRT, EntryPoint = "MQReceiveMessageByLookupId", CharSet = CharSet.Unicode)]
         public unsafe static extern HR ReceiveMessageByLookupId(
@@ -94,18 +94,18 @@ namespace Dodkin.Interop
         [DllImport(MQRT, EntryPoint = "MQReceiveMessageByLookupId", CharSet = CharSet.Unicode)]
         public unsafe static extern HR ReceiveMessageByLookupId(
             QueueHandle handle,
-            long lookupId,
+            ulong lookupId,
             LookupAction action,
             MQPROPS properties,
             NativeOverlapped* overlapped,
-            ReceiveCallback receiveCallback,
-            ITransaction transaction); //MSMQ internal transaction
+            ReceiveCallback? receiveCallback,
+            ITransaction transaction);
 
         [DllImport(MQRT, EntryPoint = "MQSendMessage", CharSet = CharSet.Unicode)]
         public static extern HR SendMessage(QueueHandle handle, MQPROPS properties, IntPtr transaction);
 
         [DllImport(MQRT, EntryPoint = "MQSendMessage", CharSet = CharSet.Unicode)]
-        public static extern HR SendMessage(QueueHandle handle, MQPROPS properties, ITransaction transaction); //MSMQ internal transaction
+        public static extern HR SendMessage(QueueHandle handle, MQPROPS properties, ITransaction transaction);
 
         [DllImport(MQRT, EntryPoint = "MQMgmtGetInfo", CharSet = CharSet.Unicode)]
         public static extern HR MgmtGetInfo(string? pMachineName, string pObjectName, MQPROPS pMgmtProps);

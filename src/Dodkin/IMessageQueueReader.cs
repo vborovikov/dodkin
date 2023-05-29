@@ -63,6 +63,12 @@
         /// </returns>
         Task<Message> ReadAsync(MessageProperty properties, TimeSpan? timeout = default, CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Reads all messages in the queue.
+        /// </summary>
+        /// <param name="propertyFlags">The message properties to receive.</param>
+        /// <param name="cancellationToken">A cancellation token.</param>
+        /// <returns>An enumerable sequence of messages.</returns>
         IAsyncEnumerable<Message> ReadAllAsync(MessageProperty propertyFlags, CancellationToken cancellationToken = default);
     }
 
@@ -90,6 +96,5 @@
         {
             return ((MessageQueueReader)reader).ReadAsync(correlationId, properties, timeout, cancellationToken);
         }
-
     }
 }
