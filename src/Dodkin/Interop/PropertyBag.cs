@@ -837,11 +837,13 @@ namespace Dodkin.Interop
     sealed class MessageProperties : PropertyBag
     {
         private static readonly string[] propertyNames;
+        private static readonly MessageProperty[] allPropertyFlags;
 
         static MessageProperties()
         {
             // all possible flags, except None and All
             propertyNames = Enum.GetNames<MessageProperty>()[1..^1];
+            allPropertyFlags = Enum.GetValues<MessageProperty>()[1..^1];
         }
 
         public MessageProperties(MessageProperty propertyFlags)
@@ -850,55 +852,45 @@ namespace Dodkin.Interop
             Init(propertyFlags);
         }
 
+        public static implicit operator Message(MessageProperties properties) => new(properties);
+
         private void Init(MessageProperty propertyFlags, bool initEmpty = false)
         {
-            if (propertyFlags.HasFlag(MessageProperty.MessageId))
+            foreach (var propertyFlag in allPropertyFlags)
             {
-                InitMessageId(MQ.PROPID.M.MSGID);
-            }
-            if (propertyFlags.HasFlag(MessageProperty.CorrelationId))
-            {
-                InitMessageId(MQ.PROPID.M.CORRELATIONID);
-            }
-            if (propertyFlags.HasFlag(MessageProperty.Body))
-            {
-                InitArray(MQ.PROPID.M.BODY, MQ.PROPID.M.BODY_SIZE, initEmpty ? 0 : 256);
-            }
-            if (propertyFlags.HasFlag(MessageProperty.Label))
-            {
-                InitString(MQ.PROPID.M.LABEL, MQ.PROPID.M.LABEL_LEN, initEmpty ? 0 : 124);
-            }
-            if (propertyFlags.HasFlag(MessageProperty.Extension))
-            {
-                InitArray(MQ.PROPID.M.EXTENSION, MQ.PROPID.M.EXTENSION_LEN, initEmpty ? 0 : 256);
-            }
-            if (propertyFlags.HasFlag(MessageProperty.RespQueue))
-            {
-                InitString(MQ.PROPID.M.RESP_QUEUE, MQ.PROPID.M.RESP_QUEUE_LEN, initEmpty ? 0 : 124);
-            }
-            if (propertyFlags.HasFlag(MessageProperty.AdminQueue))
-            {
-                InitString(MQ.PROPID.M.ADMIN_QUEUE, MQ.PROPID.M.ADMIN_QUEUE_LEN, initEmpty ? 0 : 124);
-            }
-            if (propertyFlags.HasFlag(MessageProperty.DestQueue))
-            {
-                InitString(MQ.PROPID.M.DEST_QUEUE, MQ.PROPID.M.DEST_QUEUE_LEN, initEmpty ? 0 : 124);
-            }
-            if (propertyFlags.HasFlag(MessageProperty.XactStatusQueue))
-            {
-                InitString(MQ.PROPID.M.XACT_STATUS_QUEUE, MQ.PROPID.M.XACT_STATUS_QUEUE_LEN, initEmpty ? 0 : 124);
-            }
-            if (propertyFlags.HasFlag(MessageProperty.DeadLetterQueue))
-            {
-                InitString(MQ.PROPID.M.DEADLETTER_QUEUE, MQ.PROPID.M.DEADLETTER_QUEUE_LEN, initEmpty ? 0 : 124);
-            }
-            if (propertyFlags.HasFlag(MessageProperty.AppSpecific))
-            {
-                SetValue(MQ.PROPID.M.APPSPECIFIC, 0u);
+                if (propertyFlags.HasFlag(propertyFlag))
+                {
+                    var propertyId = GetPropertyId(propertyFlag);
+                    switch (GetVarType(propertyFlag))
+                    {
+                        case VarType.String:
+                            InitString(propertyId, GetSizePropertyId(propertyId), initEmpty ? 0 : 124);
+                            break;
+                        case VarType.ByteArray:
+                            InitArray(propertyId, GetSizePropertyId(propertyId), initEmpty ? 0 : 256);
+                            break;
+                        case VarType.Byte:
+                            SetValue(propertyId, (byte)0);
+                            break;
+                        case VarType.UShort:
+                            SetValue(propertyId, (ushort)0);
+                            break;
+                        case VarType.UInt:
+                            SetValue(propertyId, 0u);
+                            break;
+                        case VarType.ULong:
+                            SetValue(propertyId, 0ul);
+                            break;
+                        case VarType.Guid:
+                            SetValue(propertyId, Guid.Empty);
+                            break;
+                        case VarType.Null:
+                            InitMessageId(propertyId);
+                            break;
+                    }
+                }
             }
         }
-
-        public static implicit operator Message(MessageProperties properties) => new(properties);
 
         public void Write(Utf8JsonWriter writer, JsonSerializerOptions options)
         {
@@ -1053,6 +1045,63 @@ namespace Dodkin.Interop
             MessageProperty.MoveCount => MQ.PROPID.M.MOVE_COUNT,
             MessageProperty.LastMoveTime => MQ.PROPID.M.LAST_MOVE_TIME,
             _ => MQ.PROPID.M.BASE,
+        };
+
+        private static VarType GetVarType(MessageProperty propertyFlag) => propertyFlag switch
+        {
+            MessageProperty.Class => VarType.UShort,
+            MessageProperty.MessageId => VarType.Null, // message-id
+            MessageProperty.CorrelationId => VarType.Null, // message-id
+            MessageProperty.Priority => VarType.Byte,
+            MessageProperty.Delivery => VarType.Byte,
+            MessageProperty.Acknowledge => VarType.Byte,
+            MessageProperty.Journal => VarType.Byte,
+            MessageProperty.AppSpecific => VarType.UInt,
+            MessageProperty.Body => VarType.ByteArray,
+            MessageProperty.Label => VarType.String,
+            MessageProperty.TimeToReachQueue => VarType.UInt,
+            MessageProperty.TimeToBeReceived => VarType.UInt,
+            MessageProperty.RespQueue => VarType.String,
+            MessageProperty.AdminQueue => VarType.String,
+            MessageProperty.Version => VarType.UInt,
+            MessageProperty.SenderId => VarType.ByteArray,
+            MessageProperty.SenderIdType => VarType.UInt,
+            MessageProperty.PrivLevel => VarType.UInt,
+            MessageProperty.AuthLevel => VarType.UInt,
+            MessageProperty.Authenticated => VarType.Byte,
+            MessageProperty.HashAlg => VarType.UInt,
+            MessageProperty.EncryptionAlg => VarType.UInt,
+            MessageProperty.SenderCert => VarType.ByteArray,
+            MessageProperty.SrcMachineId => VarType.Guid,
+            MessageProperty.SentTime => VarType.UInt,
+            MessageProperty.ArrivedTime => VarType.UInt,
+            MessageProperty.DestQueue => VarType.String,
+            MessageProperty.Extension => VarType.ByteArray,
+            MessageProperty.SecurityContext => VarType.UInt,
+            MessageProperty.ConnectorType => VarType.Guid,
+            MessageProperty.XactStatusQueue => VarType.String,
+            MessageProperty.Trace => VarType.Byte,
+            MessageProperty.BodyType => VarType.UInt,
+            MessageProperty.DestSymmKey => VarType.ByteArray,
+            MessageProperty.Signature => VarType.ByteArray,
+            MessageProperty.ProvType => VarType.UInt,
+            MessageProperty.ProvName => VarType.String,
+            MessageProperty.FirstInXact => VarType.Byte,
+            MessageProperty.LastInXact => VarType.Byte,
+            MessageProperty.XactId => VarType.Null, // message-id
+            MessageProperty.AuthenticatedEx => VarType.Byte, // cannot use with Authenticated
+            MessageProperty.RespFormatName => VarType.String,
+            MessageProperty.DestFormatName => VarType.String,
+            MessageProperty.LookupId => VarType.ULong,
+            MessageProperty.SoapEnvelope => VarType.String,
+            MessageProperty.CompoundMessage => VarType.ByteArray,
+            MessageProperty.SoapHeader => VarType.None, // write-only
+            MessageProperty.SoapBody => VarType.None, // write-only
+            MessageProperty.DeadLetterQueue => VarType.String,
+            MessageProperty.AbortCount => VarType.UInt,
+            MessageProperty.MoveCount => VarType.UInt,
+            MessageProperty.LastMoveTime => VarType.UInt,
+            _ => VarType.None,
         };
     }
 
