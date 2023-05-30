@@ -112,7 +112,7 @@
                 }
                 else
                 {
-                    MessageQueueException.ThrowOnError(result);
+                    MessageQueueException.ThrowOnError<MQ.PROPID.M>(result, packedProperties);
                 }
 
                 return packedProperties.Unpack<MessageProperties>();
@@ -169,7 +169,7 @@
                 }
                 else
                 {
-                    MessageQueueException.ThrowOnError(result);
+                    MessageQueueException.ThrowOnError<MQ.PROPID.M>(result, packedProperties);
                 }
 
                 return packedProperties.Unpack<MessageProperties>();

@@ -35,7 +35,7 @@ public class MessageQueueTests
         }
         catch (MessageQueueException x)
         {
-            Assert.AreEqual((uint)MQ.HR.ERROR_QUEUE_NOT_ACTIVE, x.ErrorCode);
+            Assert.AreEqual((uint)MQ.HR.ERROR_QUEUE_NOT_ACTIVE, (uint)x.HResult);
         }
         catch
         {

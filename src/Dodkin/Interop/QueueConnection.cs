@@ -202,13 +202,12 @@
                         if (!this.isTransactionalValid)
                         {
                             using var props = new QueueProperties();
-                            props.SetValue(MQ.PROPID.Q.TRANSACTION, (byte)MQ.PROPID.Q.TRANSACTIONAL.NONE);
+                            props.SetValue((int)MQ.PROPID.Q.TRANSACTION, (byte)0);
                             using var packedProps = props.Pack();
                             var status = MQ.GetQueueProperties(this.queueName.FormatName, packedProps);
-                            packedProps.Dispose();
-                            MessageQueueException.ThrowOnError(status);
+                            MessageQueueException.ThrowOnError<MQ.PROPID.Q>(status, packedProps);
 
-                            this.isTransactional = props.GetValue<byte>(MQ.PROPID.Q.TRANSACTION) != (byte)MQ.PROPID.Q.TRANSACTIONAL.NONE;
+                            this.isTransactional = props.GetValue<byte>((int)MQ.PROPID.Q.TRANSACTION) != 0;
                             this.isTransactionalValid = true;
                         }
                     }

@@ -2,6 +2,7 @@ namespace Dodkin.Interop
 {
     using System;
     using System.Collections;
+    using System.Diagnostics;
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
     using System.Text;
@@ -623,7 +624,9 @@ namespace Dodkin.Interop
                 }
             }
 
-            internal void Dump(IDictionary data)
+            [Conditional("DEBUG")]
+            internal void Dump<T>(IDictionary data)
+                where T : struct, Enum
             {
                 for (var i = 0; i != this.propIds.Length; ++i)
                 {
@@ -632,7 +635,7 @@ namespace Dodkin.Interop
 
                     if (propertyId > 0 && propertyStatus != MQ.HR.OK)
                     {
-                        data.Add(propertyId, Enum.GetName(propertyStatus));
+                        data.Add(Enum.GetName(typeof(T), propertyId)!, Enum.GetName(propertyStatus));
                     }
                 }
             }
@@ -847,7 +850,7 @@ namespace Dodkin.Interop
         }
 
         public MessageProperties(MessageProperty propertyFlags)
-            : base(MQ.PROPID.M.Count, MQ.PROPID.M.BASE + 1)
+            : base(75, (int)(MQ.PROPID.M.BASE + 1))
         {
             Init(propertyFlags);
         }
@@ -903,7 +906,7 @@ namespace Dodkin.Interop
                 var propertyId = GetPropertyId((MessageProperty)(1ul << i));
                 var property = base[propertyId];
                 var sizePropertyId = GetSizePropertyId(propertyId);
-                var sizeProperty = sizePropertyId > MQ.PROPID.M.BASE ? base[sizePropertyId] : null;
+                var sizeProperty = sizePropertyId > (int)MQ.PROPID.M.BASE ? base[sizePropertyId] : null;
                 var size = (int?)sizeProperty?.Export(ref dummy).ulVal;
                 if (property is not null && (size is null || size > 0))
                 {
@@ -950,7 +953,7 @@ namespace Dodkin.Interop
                         if (size > 0)
                         {
                             var sizePropertyId = properties.GetSizePropertyId(propertyId);
-                            if (sizePropertyId > MQ.PROPID.M.BASE)
+                            if (sizePropertyId > (int)MQ.PROPID.M.BASE)
                             {
                                 var sizeProperty = properties[sizePropertyId];
                                 sizeProperty.Import(new MQPROPVARIANT { vt = (ushort)VarType.UInt, ulVal = (uint)size }, MQ.HR.OK);
@@ -968,7 +971,7 @@ namespace Dodkin.Interop
             return properties;
         }
 
-        protected override int GetSizePropertyId(int propertyId) => propertyId switch
+        protected override int GetSizePropertyId(int propertyId) => (int)((MQ.PROPID.M)propertyId switch
         {
             MQ.PROPID.M.BODY => MQ.PROPID.M.BODY_SIZE,
             MQ.PROPID.M.EXTENSION => MQ.PROPID.M.EXTENSION_LEN,
@@ -988,9 +991,9 @@ namespace Dodkin.Interop
             MQ.PROPID.M.DEST_SYMM_KEY => MQ.PROPID.M.DEST_SYMM_KEY_LEN,
             MQ.PROPID.M.SIGNATURE => MQ.PROPID.M.SIGNATURE_LEN,
             _ => MQ.PROPID.M.BASE,
-        };
+        });
 
-        private static int GetPropertyId(MessageProperty propertyFlag) => propertyFlag switch
+        private static int GetPropertyId(MessageProperty propertyFlag) => (int)(propertyFlag switch
         {
             MessageProperty.Class => MQ.PROPID.M.CLASS,
             MessageProperty.MessageId => MQ.PROPID.M.MSGID,
@@ -1045,7 +1048,7 @@ namespace Dodkin.Interop
             MessageProperty.MoveCount => MQ.PROPID.M.MOVE_COUNT,
             MessageProperty.LastMoveTime => MQ.PROPID.M.LAST_MOVE_TIME,
             _ => MQ.PROPID.M.BASE,
-        };
+        });
 
         private static VarType GetVarType(MessageProperty propertyFlag) => propertyFlag switch
         {
@@ -1108,7 +1111,7 @@ namespace Dodkin.Interop
     sealed class QueueProperties : PropertyBag
     {
         public QueueProperties()
-            : base(MQ.PROPID.Q.Count, MQ.PROPID.Q.BASE + 1) { }
+            : base(26, (int)(MQ.PROPID.Q.BASE + 1)) { }
 
         public static implicit operator QueueInfo(QueueProperties properties) => new(properties);
     }
@@ -1116,14 +1119,14 @@ namespace Dodkin.Interop
     sealed class MachineManagementProperties : PropertyBag
     {
         public MachineManagementProperties()
-            : base(MQ.PROPID.MGMT_MSMQ.Count, MQ.PROPID.MGMT_MSMQ.BASE + 1)
+            : base(6, (int)(MQ.PROPID.MGMT_MSMQ.BASE + 1))
         {
-            InitStringArray(MQ.PROPID.MGMT_MSMQ.ACTIVEQUEUES);
-            InitStringArray(MQ.PROPID.MGMT_MSMQ.PRIVATEQ);
-            InitString(MQ.PROPID.MGMT_MSMQ.DSSERVER);
-            InitString(MQ.PROPID.MGMT_MSMQ.CONNECTED);
-            InitString(MQ.PROPID.MGMT_MSMQ.TYPE);
-            SetValue(MQ.PROPID.MGMT_MSMQ.BYTES_IN_ALL_QUEUES, 0ul);
+            InitStringArray((int)MQ.PROPID.MGMT_MSMQ.ACTIVEQUEUES);
+            InitStringArray((int)MQ.PROPID.MGMT_MSMQ.PRIVATEQ);
+            InitString((int)MQ.PROPID.MGMT_MSMQ.DSSERVER);
+            InitString((int)MQ.PROPID.MGMT_MSMQ.CONNECTED);
+            InitString((int)MQ.PROPID.MGMT_MSMQ.TYPE);
+            SetValue((int)MQ.PROPID.MGMT_MSMQ.BYTES_IN_ALL_QUEUES, 0ul);
         }
 
         public static implicit operator MachineManagementInfo(MachineManagementProperties properties) => new(properties);
@@ -1132,23 +1135,23 @@ namespace Dodkin.Interop
     sealed class QueueManagementProperties : PropertyBag
     {
         public QueueManagementProperties()
-            : base(MQ.PROPID.MGMT_QUEUE.Count, MQ.PROPID.MGMT_QUEUE.BASE + 1)
+            : base(27, (int)(MQ.PROPID.MGMT_QUEUE.BASE + 1))
         {
-            InitString(MQ.PROPID.MGMT_QUEUE.PATHNAME);
-            InitString(MQ.PROPID.MGMT_QUEUE.FORMATNAME);
-            InitString(MQ.PROPID.MGMT_QUEUE.TYPE);
-            InitString(MQ.PROPID.MGMT_QUEUE.LOCATION);
-            InitString(MQ.PROPID.MGMT_QUEUE.XACT);
-            InitString(MQ.PROPID.MGMT_QUEUE.FOREIGN);
-            SetValue(MQ.PROPID.MGMT_QUEUE.MESSAGE_COUNT, 0u);
-            SetValue(MQ.PROPID.MGMT_QUEUE.BYTES_IN_QUEUE, 0u);
-            SetValue(MQ.PROPID.MGMT_QUEUE.JOURNAL_MESSAGE_COUNT, 0u);
-            SetValue(MQ.PROPID.MGMT_QUEUE.BYTES_IN_JOURNAL, 0u);
-            InitString(MQ.PROPID.MGMT_QUEUE.STATE);
-            InitStringArray(MQ.PROPID.MGMT_QUEUE.NEXTHOPS);
+            InitString((int)MQ.PROPID.MGMT_QUEUE.PATHNAME);
+            InitString((int)MQ.PROPID.MGMT_QUEUE.FORMATNAME);
+            InitString((int)MQ.PROPID.MGMT_QUEUE.TYPE);
+            InitString((int)MQ.PROPID.MGMT_QUEUE.LOCATION);
+            InitString((int)MQ.PROPID.MGMT_QUEUE.XACT);
+            InitString((int)MQ.PROPID.MGMT_QUEUE.FOREIGN);
+            SetValue((int)MQ.PROPID.MGMT_QUEUE.MESSAGE_COUNT, 0u);
+            SetValue((int)MQ.PROPID.MGMT_QUEUE.BYTES_IN_QUEUE, 0u);
+            SetValue((int)MQ.PROPID.MGMT_QUEUE.JOURNAL_MESSAGE_COUNT, 0u);
+            SetValue((int)MQ.PROPID.MGMT_QUEUE.BYTES_IN_JOURNAL, 0u);
+            InitString((int)MQ.PROPID.MGMT_QUEUE.STATE);
+            InitStringArray((int)MQ.PROPID.MGMT_QUEUE.NEXTHOPS);
 
-            SetValue(MQ.PROPID.MGMT_QUEUE.SUBQUEUE_COUNT, 0u);
-            InitStringArray(MQ.PROPID.MGMT_QUEUE.SUBQUEUE_NAMES);
+            SetValue((int)MQ.PROPID.MGMT_QUEUE.SUBQUEUE_COUNT, 0u);
+            InitStringArray((int)MQ.PROPID.MGMT_QUEUE.SUBQUEUE_NAMES);
         }
 
         public static implicit operator QueueManagementInfo(QueueManagementProperties properties) => new(properties);

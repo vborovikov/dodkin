@@ -98,7 +98,7 @@
         public static MachineManagementInfo GetMachineInfo(string? machine = null)
         {
             using var packedProperties = new MachineManagementProperties().Pack();
-            MessageQueueException.ThrowOnError(MQ.MgmtGetInfo(machine, "MACHINE", packedProperties));
+            MessageQueueException.ThrowOnError<MQ.PROPID.MGMT_MSMQ>(MQ.MgmtGetInfo(machine, "MACHINE", packedProperties), packedProperties);
             return packedProperties.Unpack<MachineManagementProperties>();
         }
 
@@ -111,7 +111,7 @@
             ArgumentNullException.ThrowIfNull(queueName);
 
             using var packedProperties = new QueueManagementProperties().Pack();
-            MessageQueueException.ThrowOnError(MQ.MgmtGetInfo(machine, $"QUEUE={queueName.FormatName}", packedProperties));
+            MessageQueueException.ThrowOnError<MQ.PROPID.MGMT_QUEUE>(MQ.MgmtGetInfo(machine, $"QUEUE={queueName.FormatName}", packedProperties), packedProperties);
             return packedProperties.Unpack<QueueManagementProperties>();
         }
 
