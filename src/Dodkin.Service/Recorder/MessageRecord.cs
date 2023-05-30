@@ -5,6 +5,12 @@ record MessageRecord
     public const MessageProperty RequiredProperties =
         MessageProperty.MessageId | MessageProperty.AppSpecific | MessageProperty.RespQueue;
 
+    public const MessageProperty AllProperties =
+        MessageProperty.MessageId | MessageProperty.CorrelationId |
+        MessageProperty.Journal | MessageProperty.Acknowledge | MessageProperty.AppSpecific |
+        MessageProperty.Label | MessageProperty.Body | MessageProperty.BodyType | MessageProperty.Extension |
+        MessageProperty.RespQueue | MessageProperty.AdminQueue | MessageProperty.DeadLetterQueue;
+
     public MessageId MessageId { get; init; }
     public Message Message { get; init; }
     public MessageQueueName Destination { get; init; }

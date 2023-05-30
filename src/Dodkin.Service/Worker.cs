@@ -62,7 +62,7 @@ sealed class Worker : BackgroundService
             {
                 if (MessageRecord.Validate(peekMessage))
                 {
-                    var message = appQueue.Read(peekMessage.LookupId, MessageProperty.All, tx);
+                    var message = appQueue.Read(peekMessage.LookupId, MessageRecord.AllProperties, tx);
                     // store the message
                     await this.ms.AddAsync(MessageRecord.From(message), stoppingToken);
                     // signal for delivery
@@ -117,6 +117,7 @@ sealed class Worker : BackgroundService
             }
 
             // send it to the mq
+            //todo: set ConnectorType and other properties specific to the connector app
             using var destQueue = this.mq.CreateWriter(messageRecord.Destination);
             await destQueue.WriteAsync(messageRecord.Message, null, stoppingToken);
 

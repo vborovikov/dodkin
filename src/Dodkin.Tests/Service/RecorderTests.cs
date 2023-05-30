@@ -38,8 +38,8 @@ public class RecorderTests
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
-        MessageQueue.Create(testAppQN);
-        //MessageQueue.Create(testAdminQN);
+        MessageQueue.TryCreate(testAppQN);
+        MessageQueue.TryCreate(testAdminQN);
 
         worker = new Worker(new WorkerOptions(), new MessageQueueFactory(),
             new MessageStore(
@@ -53,7 +53,7 @@ public class RecorderTests
     [ClassCleanup]
     public static async Task ClassCleanup()
     {
-        //MessageQueue.Delete(testAdminQN);
+        MessageQueue.Delete(testAdminQN);
         MessageQueue.Delete(testAppQN);
 
         await worker.StopAsync(default);
@@ -78,7 +78,7 @@ public class RecorderTests
         writer.Write(message, QueueTransaction.SingleMessage);
 
         using var reader = new MessageQueueReader(testAppQN);
-        using var futureMessage = await reader.ReadAsync(MessageProperty.All);
+        using var futureMessage = await reader.ReadAsync(MessageRecord.AllProperties);
 
         Assert.AreEqual(message.Label, futureMessage.Label);
         var futurePayload = JsonSerializer.Deserialize<Payload>(futureMessage.Body);
