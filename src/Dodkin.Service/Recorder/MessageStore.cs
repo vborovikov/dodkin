@@ -12,6 +12,7 @@ interface IMessageStore
     Task<MessageRecord> GetAsync(CancellationToken cancellationToken);
     Task<DateTimeOffset?> GetDueTimeAsync(CancellationToken cancellationToken);
     Task RemoveAsync(MessageId messageId, CancellationToken cancellationToken);
+    Task RetryAsync(MessageId messageId, CancellationToken cancellationToken);
 }
 
 sealed class MessageStore : IMessageStore
@@ -89,9 +90,30 @@ sealed class MessageStore : IMessageStore
         await using var cnn = await this.db.OpenConnectionAsync(cancellationToken);
         return await cnn.QueryFirstOrDefaultAsync<MessageRecord>(
             """
-            select top 1 m.MessageId, m.Message, m.Destination, m.DueTime
+            select top 1 m.MessageId, m.Message, m.Destination, m.DueTime, m.RetryCount
             from job.Delivery m
             order by m.DueTime; 
             """);
+    }
+
+    public async Task RetryAsync(MessageId messageId, CancellationToken cancellationToken)
+    {
+        await using var cnn = await this.db.OpenConnectionAsync(cancellationToken);
+        await using var tx = await cnn.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            await cnn.ExecuteAsync(
+                """
+                update job.Delivery set RetryCount = RetryCount + 1
+                where MessageId = @MessageId;
+                """, new { MessageId = messageId }, tx);
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch (Exception)
+        {
+            await tx.RollbackAsync(cancellationToken);
+        }
+
     }
 }

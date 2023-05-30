@@ -13,7 +13,11 @@ record ServiceOptions
 
     public MessageEndpoint Endpoint { get; init; }
 
+    public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(3);
+
     public TimeSpan WaitPeriod { get; init; } = TimeSpan.FromDays(1);
+
+    public int RetryCount { get; init; } = MessageRecord.MaxRetryCount;
 }
 
 static class Program

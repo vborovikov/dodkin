@@ -29,12 +29,13 @@ sealed class Worker : BackgroundService
         {
             if (!MessageQueue.Exists(this.options.Endpoint.ApplicationQueue))
             {
-                MessageQueue.TryCreate(this.options.Endpoint.ApplicationQueue, isTransactional: true);
+                MessageQueue.Create(this.options.Endpoint.ApplicationQueue,
+                    isTransactional: true, hasJournal: true, label: ServiceOptions.ServiceName);
             }
         }
         catch (Exception ex)
         {
-            this.log.LogError(ex, "Failed to create message queue {ApplicationQueue}.", 
+            this.log.LogError(ex, "Failed to create message queue {ApplicationQueue}.",
                 this.options.Endpoint.ApplicationQueue);
             throw;
         }
@@ -117,13 +118,47 @@ sealed class Worker : BackgroundService
                 continue;
             }
 
-            // send it to the mq
-            //todo: set ConnectorType and other properties specific to the connector app
-            using var destQueue = this.mq.CreateWriter(messageRecord.Destination);
-            await destQueue.WriteAsync(messageRecord.Message, null, stoppingToken);
+            try
+            {
+                if (messageRecord.RetryCount < this.options.RetryCount)
+                {
+                    // send it to the mq
+                    var message = messageRecord.CreateMessage(this.options.Endpoint.AdministrationQueue, this.options.Timeout);
+                    //todo: set ConnectorType and other properties specific to the connector app
+                    using var destinationQ = this.mq.CreateWriter(messageRecord.Destination);
+                    destinationQ.Write(message, null);
 
-            // delete the message from the db
-            await this.ms.RemoveAsync(messageRecord.MessageId, stoppingToken);
+                    // wait until the ACK message
+                    if (this.options.Endpoint.AdministrationQueue is not null)
+                    {
+                        using var adminQ = this.mq.CreateReader(this.options.Endpoint.AdministrationQueue);
+                        var ack = await adminQ.ReadAsync(message.Id, MessageProperty.Class, this.options.Timeout, stoppingToken);
+
+                        if (ack.IsEmpty || ack.Class != MessageClass.AckReceive)
+                        {
+                            await this.ms.RetryAsync(messageRecord.MessageId, stoppingToken);
+                            continue;
+                        }
+                    }
+                }
+                else
+                {
+                    if (MessageQueueName.TryParse(messageRecord.Message.DeadLetterQueue, out var deadLetterQN))
+                    {
+                        // send the message to DLQ
+                        using var deadLetterQ = this.mq.CreateWriter(deadLetterQN);
+                        deadLetterQ.Write(messageRecord.Message, QueueTransaction.SingleMessage);
+                    }
+                }
+
+                // delete the message from the db
+                await this.ms.RemoveAsync(messageRecord.MessageId, stoppingToken);
+            }
+            catch (Exception x)
+            {
+                this.log.LogError(x, "Worker failed to send message to the queue {MessageQueue}", messageRecord.Destination);
+                await this.ms.RetryAsync(messageRecord.MessageId, stoppingToken);
+            }
         }
     }
 }

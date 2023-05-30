@@ -2,6 +2,8 @@ namespace Dodkin.Service.Recorder;
 
 record MessageRecord
 {
+    public const int MaxRetryCount = 3;
+
     public const MessageProperty RequiredProperties =
         MessageProperty.MessageId | MessageProperty.AppSpecific | MessageProperty.RespQueue;
 
@@ -18,6 +20,26 @@ record MessageRecord
     public int RetryCount { get; init; }
 
     public bool IsValid => !this.Message.IsEmpty && this.DueTime > DateTimeOffset.Now;
+
+    public Message CreateMessage(MessageQueueName administrationQN, TimeSpan timeout)
+    {
+        var message = new Message(this.Message.Body.ToArray(), this.Message.Extension.ToArray())
+        {
+            CorrelationId = this.Message.CorrelationId,
+            Journal = this.Message.Journal | MessageJournaling.DeadLetter,
+            AppSpecific = this.Message.AppSpecific,
+            Label = this.Message.Label,
+            BodyType = this.Message.BodyType,
+            DeadLetterQueue = this.Message.DeadLetterQueue,
+            // set by Dodkin Service to gurantee delivery
+            AdministrationQueue = administrationQN,
+            TimeToReachQueue = timeout, // if the queue is local, the message always reaches the queue
+            TimeToBeReceived = timeout,
+            Acknowledgment = MessageAcknowledgment.FullReceive,
+        };
+
+        return message;
+    }
 
     public static MessageRecord From(in Message message)
     {

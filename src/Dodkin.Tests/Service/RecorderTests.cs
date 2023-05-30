@@ -18,14 +18,16 @@ public class RecorderTests
         {
             Endpoint = new MessageEndpoint
             {
-                ApplicationQueue = futureQN,
+                ApplicationQueue = appQN,
+                AdministrationQueue = adminQN,
             }
         };
     }
 
     private static readonly MessageQueueName testAppQN = MessageQueueName.Parse(@".\private$\dodkin-service-test");
     private static readonly MessageQueueName testAdminQN = MessageQueueName.Parse(@".\private$\dodkin-service-test-admin");
-    private static readonly MessageQueueName futureQN = MessageQueueName.Parse(@".\private$\future");
+    private static readonly MessageQueueName appQN = MessageQueueName.Parse(@".\private$\future-test");
+    private static readonly MessageQueueName adminQN = MessageQueueName.Parse(@".\private$\future-admin-test");
     private static Worker worker;
 
     private record Payload(string Data);
@@ -38,8 +40,8 @@ public class RecorderTests
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
-        MessageQueue.TryCreate(testAppQN);
-        MessageQueue.TryCreate(testAdminQN);
+        MessageQueue.TryCreate(appQN, isTransactional: true);
+        MessageQueue.TryCreate(adminQN);
 
         worker = new Worker(new WorkerOptions(), new MessageQueueFactory(),
             new MessageStore(
@@ -48,6 +50,9 @@ public class RecorderTests
             new Logger<Worker>(new LoggerFactory()));
 
         await worker.StartAsync(default);
+
+        MessageQueue.TryCreate(testAppQN);
+        MessageQueue.TryCreate(testAdminQN);
     }
 
     [ClassCleanup]
@@ -57,6 +62,9 @@ public class RecorderTests
         MessageQueue.Delete(testAppQN);
 
         await worker.StopAsync(default);
+
+        MessageQueue.Delete(adminQN);
+        MessageQueue.Delete(appQN);
     }
 
     [TestMethod]
@@ -74,7 +82,7 @@ public class RecorderTests
             TimeToBeReceived = TimeSpan.FromSeconds(5),
         };
 
-        using var writer = new MessageQueueWriter(futureQN);
+        using var writer = new MessageQueueWriter(appQN);
         writer.Write(message, QueueTransaction.SingleMessage);
 
         using var reader = new MessageQueueReader(testAppQN);
