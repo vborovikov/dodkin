@@ -25,17 +25,17 @@ sealed class Worker : BackgroundService
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        var applicationQueueName = this.options.Endpoint.ApplicationQueue;
         try
         {
-            if (!MessageQueue.Exists(applicationQueueName))
+            if (!MessageQueue.Exists(this.options.Endpoint.ApplicationQueue))
             {
-                MessageQueue.TryCreate(applicationQueueName, isTransactional: true);
+                MessageQueue.TryCreate(this.options.Endpoint.ApplicationQueue, isTransactional: true);
             }
         }
         catch (Exception ex)
         {
-            this.log.LogError(ex, $"Failed to create message queue {applicationQueueName}.");
+            this.log.LogError(ex, "Failed to create message queue {ApplicationQueue}.", 
+                this.options.Endpoint.ApplicationQueue);
             throw;
         }
 
