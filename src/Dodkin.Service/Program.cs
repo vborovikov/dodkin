@@ -12,6 +12,8 @@ record ServiceOptions
     public const string ServiceName = "Dodkin";
 
     public MessageEndpoint Endpoint { get; init; }
+
+    public TimeSpan WaitPeriod { get; init; } = TimeSpan.FromDays(1);
 }
 
 static class Program

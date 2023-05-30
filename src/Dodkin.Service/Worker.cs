@@ -49,7 +49,7 @@ sealed class Worker : BackgroundService
 
     private async Task ReceiveMessagesAsync(CancellationToken stoppingToken)
     {
-        var appQueue = this.mq.CreateSorter(this.options.Endpoint.ApplicationQueue);
+        using var appQueue = this.mq.CreateSorter(this.options.Endpoint.ApplicationQueue);
         this.log.LogInformation("Worker started to receive messages at: {time}", DateTimeOffset.Now);
 
         while (!stoppingToken.IsCancellationRequested)
@@ -70,6 +70,7 @@ sealed class Worker : BackgroundService
                 }
                 else
                 {
+                    // NACK message
                     appQueue.Reject(peekMessage.LookupId);
                     this.log.LogWarning("Worker rejected message {MessageId}", peekMessage.Id);
                 }
@@ -92,7 +93,7 @@ sealed class Worker : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             // get next due-time from the db
-            var dueTime = await this.ms.GetDueTimeAsync(stoppingToken) ?? DateTimeOffset.Now.AddDays(1);
+            var dueTime = await this.ms.GetDueTimeAsync(stoppingToken) ?? (DateTimeOffset.Now + this.options.WaitPeriod);
             var waitPeriod = dueTime - DateTimeOffset.Now;
             if (waitPeriod > TimeSpan.Zero)
             {
