@@ -1,5 +1,7 @@
 namespace Dodkin.Tests.Messaging;
 
+using Dodkin.Tests.Tools;
+
 [TestClass]
 public class MessageQueueNameTests
 {
@@ -151,4 +153,31 @@ public class MessageQueueNameTests
         // Act & Assert
         Assert.ThrowsException<FormatException>(() => MessageQueueName.Parse(input));
     }
+
+    [TestMethod]
+    public void Equality_AgainstNull_Unequal()
+    {
+        var mqn = MessageQueueName.Parse(".\\private$\\test");
+
+        EqualityTests.TestAgainstNull(mqn);
+    }
+
+    [TestMethod]
+    public void Equality_DifferentNames_Unequal()
+    {
+        var mqn1 = MessageQueueName.Parse(".\\private$\\test1");
+        var mqn2 = MessageQueueName.Parse(".\\private$\\test2");
+
+        EqualityTests.TestUnequalObjects(mqn1, mqn2);
+    }
+
+    [TestMethod]
+    public void Equality_RandomParsed_Equal()
+    {
+        var mqn = MessageQueueName.Parse(".\\private$\\test");
+        var mqnParsed = MessageQueueName.Parse(mqn.ToString());
+
+        EqualityTests.TestEqualObjects(mqn, mqnParsed);
+    }
+
 }

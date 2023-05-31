@@ -1,7 +1,9 @@
 ﻿namespace Dodkin
 {
+    using System.Diagnostics.CodeAnalysis;
+
     /// <summary>The message identifier</summary>
-    public readonly struct MessageId : IEquatable<MessageId>
+    public readonly struct MessageId : IEquatable<MessageId>, IParsable<MessageId>, ISpanParsable<MessageId>
     {
         internal const int Size = 20;
 
@@ -46,6 +48,20 @@
 
             return false;
         }
+
+        /// <inheritdoc />
+        public static MessageId Parse(ReadOnlySpan<char> s, IFormatProvider? provider) => Parse(s);
+
+        /// <inheritdoc />
+        public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider,
+            [MaybeNullWhen(false)] out MessageId result) => TryParse(s, out result);
+
+        /// <inheritdoc />
+        public static MessageId Parse(string s, IFormatProvider? provider) => Parse(s);
+
+        /// <inheritdoc />
+        public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider,
+            [MaybeNullWhen(false)] out MessageId result) => TryParse(s, out result);
 
         public bool TryWriteBytes(Span<byte> destination)
         {

@@ -74,6 +74,19 @@
 
         public bool Equals(string? other) => TryParse(other, out var otherName) && Equals(otherName);
 
+        public static bool operator ==(MessageQueueName a, MessageQueueName b) => Equals(a, b);
+
+        public static bool operator !=(MessageQueueName a, MessageQueueName b) => !Equals(a, b);
+
+        public static bool Equals(MessageQueueName a, MessageQueueName b)
+        {
+            if (ReferenceEquals(a, b))
+                return true;
+            if (a is null) return false;
+            if (b is null) return false;
+            return a.Equals(b);
+        }
+
         public static MessageQueueName Parse(ReadOnlySpan<char> s)
         {
             if (TryParse(s, out var result))
