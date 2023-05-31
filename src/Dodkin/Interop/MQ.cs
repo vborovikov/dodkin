@@ -9,6 +9,7 @@ namespace Dodkin.Interop
     static partial class MQ
     {
         const string MQRT = "mqrt.dll";
+        const string KERNEL32 = "kernel32.dll";
 
         public unsafe delegate void ReceiveCallback(
             HR hrStatus, IntPtr hSource, uint dwTimeout, uint dwAction, 
@@ -113,10 +114,28 @@ namespace Dodkin.Interop
         [DllImport(MQRT, EntryPoint = "MQFreeMemory", CharSet = CharSet.Unicode)]
         public static extern void FreeMemory(IntPtr memory);
 
-        [DllImport("kernel32.dll", SetLastError = true)]
+        [DllImport(KERNEL32, SetLastError = true)]
         [ResourceExposure(ResourceScope.None)]
         public unsafe static extern int GetHandleInformation(QueueHandle handle, out int flags);
 
         public static uint GetTimeout(TimeSpan? timeout) => (uint)(timeout ?? Timeout.InfiniteTimeSpan).TotalMilliseconds;
+
+        private const int FORMAT_MESSAGE_IGNORE_INSERTS = 0x00000200;
+        private const int FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000;
+        private const int FORMAT_MESSAGE_ARGUMENT_ARRAY = 0x00002000;
+
+        [DllImport(KERNEL32, CharSet = CharSet.Unicode, BestFitMapping = true), ResourceExposure(ResourceScope.None)]
+        internal static extern int FormatMessage(int dwFlags, IntPtr lpSource, int dwMessageId, int dwLanguageId,
+            [Out] StringBuilder lpBuffer, int nSize, IntPtr va_list_arguments);
+
+        // Gets an error message for a Win32 error code.
+        public static string GetErrorMessage(HR errorCode)
+        {
+            var sb = new StringBuilder(512);
+            var result = FormatMessage(FORMAT_MESSAGE_IGNORE_INSERTS |
+                FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ARGUMENT_ARRAY,
+                IntPtr.Zero, (int)errorCode, 0, sb, sb.Capacity, IntPtr.Zero);
+            return result != 0 ? sb.ToString() : errorCode.ToString();
+        }
     }
 }

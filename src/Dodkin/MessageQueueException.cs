@@ -11,7 +11,7 @@ public class MessageQueueException : Exception
     protected MessageQueueException(string message) : base(message) { }
 
     internal MessageQueueException(MQ.HR errorCode)
-        : base(errorCode.ToString())
+        : base(MQ.GetErrorMessage(errorCode))
     {
         this.HResult = (int)errorCode;
     }
