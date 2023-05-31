@@ -50,12 +50,12 @@ sealed class Worker : BackgroundService
 
     private async Task ReceiveMessagesAsync(CancellationToken stoppingToken)
     {
-        using var appQueue = this.mq.CreateSorter(this.options.Endpoint.ApplicationQueue);
+        using var serviceQ = this.mq.CreateSorter(this.options.Endpoint.ApplicationQueue);
         this.log.LogInformation("Worker started to receive messages at: {time}", DateTimeOffset.Now);
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            var peekMessage = await appQueue.PeekAsync(MessageProperty.LookupId | MessageRecord.RequiredProperties,
+            var peekMessage = await serviceQ.PeekAsync(MessageProperty.LookupId | MessageRecord.RequiredProperties,
                 cancellationToken: stoppingToken);
 
             using var tx = new QueueTransaction();
@@ -63,7 +63,7 @@ sealed class Worker : BackgroundService
             {
                 if (MessageRecord.Validate(peekMessage))
                 {
-                    using var message = appQueue.Read(peekMessage.LookupId, MessageRecord.AllProperties, tx);
+                    using var message = serviceQ.Read(peekMessage.LookupId, MessageRecord.AllProperties, tx);
                     // store the message
                     await this.db.AddAsync(MessageRecord.From(message), stoppingToken);
                     // signal for delivery
@@ -72,7 +72,7 @@ sealed class Worker : BackgroundService
                 else
                 {
                     // NACK message
-                    appQueue.Reject(peekMessage.LookupId, tx);
+                    serviceQ.Reject(peekMessage.LookupId, tx);
                     this.log.LogWarning("Worker rejected message {MessageId}", peekMessage.Id);
                 }
                 // ACK message
@@ -123,7 +123,7 @@ sealed class Worker : BackgroundService
                 if (messageRecord.RetryCount < this.options.RetryCount)
                 {
                     // send it to the mq
-                    var message = messageRecord.CreateMessage(this.options.Endpoint.AdministrationQueue, this.options.Timeout);
+                    using var message = messageRecord.CreateMessage(this.options.Endpoint.AdministrationQueue, this.options.Timeout);
                     //todo: set ConnectorType and other properties specific to the connector app
                     using var destinationQ = this.mq.CreateWriter(messageRecord.Destination);
                     destinationQ.Write(message, null);
