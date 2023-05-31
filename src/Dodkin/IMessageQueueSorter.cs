@@ -27,7 +27,8 @@
         /// Rejects the message with the given <paramref name="lookupId"/>.
         /// </summary>
         /// <param name="lookupId">The message lookup id.</param>
+        /// <param name="transaction">The transaction object.</param>
         /// <exception cref="MessageQueueException">The message was not found or there was an error.</exception>
-        void Reject(MessageLookupId lookupId);
+        void Reject(MessageLookupId lookupId, QueueTransaction transaction);
     }
 }

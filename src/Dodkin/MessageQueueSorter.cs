@@ -30,9 +30,10 @@
             MessageQueueException.ThrowOnError(result);
         }
 
-        public void Reject(MessageLookupId lookupId)
+        public void Reject(MessageLookupId lookupId, QueueTransaction transaction)
         {
-            MessageQueueException.ThrowOnError(MQ.MarkMessageRejected(base.Handle, lookupId.Value));
+            using var msg = Read(lookupId, MessageProperty.LookupId, transaction);
+            MessageQueueException.ThrowOnError(MQ.MarkMessageRejected(base.Handle, msg.LookupId.Value));
         }
 
         public override void Dispose()
