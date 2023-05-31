@@ -57,7 +57,8 @@
         AbortCount          = 1ul << 49,
         MoveCount           = 1ul << 50,
         LastMoveTime        = 1ul << 51,
-        //todo: change to all properties that can be received together
-        All                 = 0xFFFF_FFFF_FFFF_FFFF,
+        All                 = Class | MessageId | CorrelationId | Priority | Delivery | Acknowledge | Journal |
+                              AppSpecific | Body | Label | TimeToReachQueue | TimeToBeReceived | RespQueue | AdminQueue |
+                              SentTime | ArrivedTime | DestQueue | Extension | BodyType | LookupId | DeadLetterQueue,
     }
 }
