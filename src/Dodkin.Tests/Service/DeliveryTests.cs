@@ -16,18 +16,13 @@ public class DeliveryTests
     {
         public ServiceOptions Value => new ServiceOptions
         {
-            Endpoint = new MessageEndpoint
-            {
-                ApplicationQueue = serviceAppQN,
-                AdministrationQueue = serviceAdminQN,
-            }
+            Endpoint = serviceEndpoint
         };
     }
 
+    private static readonly MessageEndpoint serviceEndpoint = MessageEndpoint.FromName("future-test");
     private static readonly MessageQueueName testAppQN = MessageQueueName.Parse(@".\private$\dodkin-service-test");
     private static readonly MessageQueueName testAdminQN = MessageQueueName.Parse(@".\private$\dodkin-service-test-admin");
-    private static readonly MessageQueueName serviceAppQN = MessageQueueName.Parse(@".\private$\future-test");
-    private static readonly MessageQueueName serviceAdminQN = MessageQueueName.Parse(@".\private$\future-admin-test");
     private static Worker worker;
 
     private record Payload(string Data);
@@ -40,9 +35,6 @@ public class DeliveryTests
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
-        MessageQueue.TryCreate(serviceAppQN, isTransactional: true);
-        MessageQueue.TryCreate(serviceAdminQN);
-
         worker = new Worker(new WorkerOptions(), new MessageQueueFactory(),
             new MessageStore(
                 new DbFactory(SqlClientFactory.Instance, @"Data Source=(LocalDB)\SqlLocalDB15;Initial Catalog=Dodkin;Integrated Security=SSPI;"),
@@ -51,7 +43,7 @@ public class DeliveryTests
 
         await worker.StartAsync(default);
 
-        MessageQueue.TryCreate(testAppQN);
+        MessageQueue.TryCreate(testAppQN, isTransactional: true);
         MessageQueue.TryCreate(testAdminQN);
     }
 
@@ -63,8 +55,9 @@ public class DeliveryTests
 
         await worker.StopAsync(default);
 
-        MessageQueue.Delete(serviceAdminQN);
-        MessageQueue.Delete(serviceAppQN);
+        MessageQueue.Delete(serviceEndpoint.DeadLetterQueue);
+        MessageQueue.Delete(serviceEndpoint.AdministrationQueue);
+        MessageQueue.Delete(serviceEndpoint.ApplicationQueue);
     }
 
     [TestMethod]
@@ -82,11 +75,11 @@ public class DeliveryTests
             TimeToBeReceived = TimeSpan.FromSeconds(5),
         };
 
-        using var writer = new MessageQueueWriter(serviceAppQN);
+        using var writer = new MessageQueueWriter(serviceEndpoint.ApplicationQueue);
         writer.Write(message, QueueTransaction.SingleMessage);
 
         using var reader = new MessageQueueReader(testAppQN);
-        using var futureMessage = await reader.ReadAsync(MessageRecord.AllProperties);
+        using var futureMessage = await reader.ReadAsync(MessageProperty.All);
 
         Assert.AreEqual(message.Label, futureMessage.Label);
         var futurePayload = JsonSerializer.Deserialize<Payload>(futureMessage.Body);
@@ -107,7 +100,7 @@ public class DeliveryTests
             TimeToBeReceived = TimeSpan.FromSeconds(5),
         };
 
-        using var serviceQ = new MessageQueueWriter(serviceAppQN);
+        using var serviceQ = new MessageQueueWriter(serviceEndpoint.ApplicationQueue);
         serviceQ.Write(message, QueueTransaction.SingleMessage);
 
         using var adminQ = new MessageQueueReader(testAdminQN);

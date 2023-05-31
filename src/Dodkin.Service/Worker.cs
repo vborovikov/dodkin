@@ -27,16 +27,12 @@ sealed class Worker : BackgroundService
     {
         try
         {
-            if (!MessageQueue.Exists(this.options.Endpoint.ApplicationQueue))
-            {
-                MessageQueue.Create(this.options.Endpoint.ApplicationQueue,
-                    isTransactional: true, hasJournal: true, label: ServiceOptions.ServiceName);
-            }
+            this.options.Endpoint.CreateIfNotExists(ServiceOptions.ServiceName, isTransactional: true);
         }
         catch (Exception ex)
         {
-            this.log.LogError(ex, "Failed to create message queue {ApplicationQueue}.",
-                this.options.Endpoint.ApplicationQueue);
+            this.log.LogError(ex, "Failed to create service message endpoint: {MessageEndpoint}.",
+                this.options.Endpoint);
             throw;
         }
 
@@ -123,10 +119,10 @@ sealed class Worker : BackgroundService
                 if (messageRecord.RetryCount < this.options.RetryCount)
                 {
                     // send it to the mq
-                    using var message = messageRecord.CreateMessage(this.options.Endpoint.AdministrationQueue, this.options.Timeout);
+                    using var message = messageRecord.CreateMessage(this.options.Endpoint, this.options.Timeout);
                     //todo: set ConnectorType and other properties specific to the connector app
                     using var destinationQ = this.mq.CreateWriter(messageRecord.Destination);
-                    destinationQ.Write(message, null);
+                    destinationQ.Write(message, QueueTransaction.SingleMessage);
 
                     // wait until the ACK message
                     if (this.options.Endpoint.AdministrationQueue is not null)

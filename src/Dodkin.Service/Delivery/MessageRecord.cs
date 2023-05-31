@@ -21,21 +21,21 @@ record MessageRecord
 
     public bool IsValid => !this.Message.IsEmpty && this.DueTime > DateTimeOffset.Now;
 
-    public Message CreateMessage(MessageQueueName administrationQN, TimeSpan timeout)
+    public Message CreateMessage(MessageEndpoint endpoint, TimeSpan timeout)
     {
         var message = new Message(this.Message.Body.ToArray(), this.Message.Extension.ToArray())
         {
             CorrelationId = this.Message.CorrelationId,
-            Journal = this.Message.Journal | MessageJournaling.DeadLetter,
             AppSpecific = this.Message.AppSpecific,
             Label = this.Message.Label,
             BodyType = this.Message.BodyType,
-            DeadLetterQueue = this.Message.DeadLetterQueue,
             // set by Dodkin Service to gurantee delivery
-            AdministrationQueue = administrationQN,
+            AdministrationQueue = endpoint.AdministrationQueue,
             TimeToReachQueue = timeout, // if the queue is local, the message always reaches the queue
             TimeToBeReceived = timeout,
             Acknowledgment = MessageAcknowledgment.FullReceive,
+            Journal = this.Message.Journal | MessageJournaling.DeadLetter,
+            DeadLetterQueue = endpoint.DeadLetterQueue.PathName,
         };
 
         return message;

@@ -11,7 +11,7 @@ record ServiceOptions
 {
     public const string ServiceName = "Dodkin";
 
-    public MessageEndpoint Endpoint { get; init; }
+    public MessageEndpoint Endpoint { get; init; } = MessageEndpoint.FromName(ServiceName.ToLowerInvariant());
 
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(3);
 
