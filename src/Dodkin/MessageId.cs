@@ -35,7 +35,7 @@
             if (span.IsEmpty)
                 return false;
 
-            var separatorPos = span.IndexOf('\\');
+            var separatorPos = span.LastIndexOf('\\');
             if (separatorPos <= 0)
                 return false;
 
