@@ -26,7 +26,7 @@
         IParsable<MessageQueueName>, ISpanParsable<MessageQueueName>
     {
         private const string IllegalQueueNameChars = "=:\r\n+,\"";
-        protected const string LocalComputer = ".";
+        protected internal const string LocalComputer = ".";
         protected const string PrivateQueueMoniker = "private$";
         protected const string SystemQueueMoniker = "system$";
 
