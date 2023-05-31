@@ -3,14 +3,14 @@
 using System.Text.Json;
 using Dodkin.Service;
 using Dodkin.Service.Data;
-using Dodkin.Service.Recorder;
+using Dodkin.Service.Delivery;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 [TestClass]
-public class RecorderTests
+public class DeliveryTests
 {
     private sealed class WorkerOptions : IOptions<ServiceOptions>
     {
@@ -18,21 +18,21 @@ public class RecorderTests
         {
             Endpoint = new MessageEndpoint
             {
-                ApplicationQueue = appQN,
-                AdministrationQueue = adminQN,
+                ApplicationQueue = serviceAppQN,
+                AdministrationQueue = serviceAdminQN,
             }
         };
     }
 
     private static readonly MessageQueueName testAppQN = MessageQueueName.Parse(@".\private$\dodkin-service-test");
     private static readonly MessageQueueName testAdminQN = MessageQueueName.Parse(@".\private$\dodkin-service-test-admin");
-    private static readonly MessageQueueName appQN = MessageQueueName.Parse(@".\private$\future-test");
-    private static readonly MessageQueueName adminQN = MessageQueueName.Parse(@".\private$\future-admin-test");
+    private static readonly MessageQueueName serviceAppQN = MessageQueueName.Parse(@".\private$\future-test");
+    private static readonly MessageQueueName serviceAdminQN = MessageQueueName.Parse(@".\private$\future-admin-test");
     private static Worker worker;
 
     private record Payload(string Data);
 
-    static RecorderTests()
+    static DeliveryTests()
     {
         DbTypes.Initialize();
     }
@@ -40,8 +40,8 @@ public class RecorderTests
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
-        MessageQueue.TryCreate(appQN, isTransactional: true);
-        MessageQueue.TryCreate(adminQN);
+        MessageQueue.TryCreate(serviceAppQN, isTransactional: true);
+        MessageQueue.TryCreate(serviceAdminQN);
 
         worker = new Worker(new WorkerOptions(), new MessageQueueFactory(),
             new MessageStore(
@@ -63,12 +63,12 @@ public class RecorderTests
 
         await worker.StopAsync(default);
 
-        MessageQueue.Delete(adminQN);
-        MessageQueue.Delete(appQN);
+        MessageQueue.Delete(serviceAdminQN);
+        MessageQueue.Delete(serviceAppQN);
     }
 
     [TestMethod]
-    public async Task FutureDelivery_FutureMessage_Delivered()
+    public async Task ExecuteAsync_FutureMessage_Delivered()
     {
         var payload = new Payload("test");
         var message = new Message(JsonSerializer.SerializeToUtf8Bytes(payload))
@@ -82,7 +82,7 @@ public class RecorderTests
             TimeToBeReceived = TimeSpan.FromSeconds(5),
         };
 
-        using var writer = new MessageQueueWriter(appQN);
+        using var writer = new MessageQueueWriter(serviceAppQN);
         writer.Write(message, QueueTransaction.SingleMessage);
 
         using var reader = new MessageQueueReader(testAppQN);
@@ -91,5 +91,28 @@ public class RecorderTests
         Assert.AreEqual(message.Label, futureMessage.Label);
         var futurePayload = JsonSerializer.Deserialize<Payload>(futureMessage.Body);
         Assert.AreEqual(payload, futurePayload);
+    }
+
+    [TestMethod]
+    public async Task ExecuteAsync_InvalidMessage_Rejected()
+    {
+        var payload = new Payload("test");
+        using var message = new Message(JsonSerializer.SerializeToUtf8Bytes(payload))
+        {
+            Label = "invalid",
+            AppSpecific = 0,
+            ResponseQueue = testAppQN,
+            AdministrationQueue = testAdminQN,
+            Acknowledgment = MessageAcknowledgment.FullReceive,
+            TimeToBeReceived = TimeSpan.FromSeconds(5),
+        };
+
+        using var serviceQ = new MessageQueueWriter(serviceAppQN);
+        serviceQ.Write(message, QueueTransaction.SingleMessage);
+
+        using var adminQ = new MessageQueueReader(testAdminQN);
+        using var ack = await adminQ.ReadAsync(message.Id, MessageProperty.Class);
+
+        Assert.AreEqual(MessageClass.NackReceiveRejected, ack.Class);
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace Dodkin.Service.Recorder;
+﻿namespace Dodkin.Service.Delivery;
 
 using System;
 using System.Threading.Tasks;

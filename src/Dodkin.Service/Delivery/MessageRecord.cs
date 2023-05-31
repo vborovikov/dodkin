@@ -1,4 +1,4 @@
-namespace Dodkin.Service.Recorder;
+namespace Dodkin.Service.Delivery;
 
 record MessageRecord
 {
@@ -56,7 +56,7 @@ record MessageRecord
     {
         return
             message.Id != default &&
-            !string.IsNullOrWhiteSpace(message.ResponseQueue) &&
+            MessageQueueName.TryParse(message.ResponseQueue, out _) &&
             DateTimeOffset.FromUnixTimeSeconds(message.AppSpecific) > DateTimeOffset.Now;
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace Dodkin.Service.Recorder;
+﻿namespace Dodkin.Service.Delivery;
 
 sealed class AsyncManualResetEvent
 {

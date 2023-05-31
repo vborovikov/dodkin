@@ -2,13 +2,13 @@ namespace Dodkin.Service;
 
 using Data;
 using Microsoft.Extensions.Options;
-using Recorder;
+using Delivery;
 
 sealed class Worker : BackgroundService
 {
     private readonly ServiceOptions options;
     private readonly IMessageQueueFactory mq;
-    private readonly IMessageStore ms;
+    private readonly IMessageStore db;
     private readonly ILogger<Worker> log;
     private readonly AsyncManualResetEvent msgEvent;
 
@@ -18,7 +18,7 @@ sealed class Worker : BackgroundService
     {
         this.options = options.Value;
         this.mq = mq;
-        this.ms = ms;
+        this.db = ms;
         this.log = log;
         this.msgEvent = new();
     }
@@ -63,16 +63,16 @@ sealed class Worker : BackgroundService
             {
                 if (MessageRecord.Validate(peekMessage))
                 {
-                    var message = appQueue.Read(peekMessage.LookupId, MessageRecord.AllProperties, tx);
+                    using var message = appQueue.Read(peekMessage.LookupId, MessageRecord.AllProperties, tx);
                     // store the message
-                    await this.ms.AddAsync(MessageRecord.From(message), stoppingToken);
+                    await this.db.AddAsync(MessageRecord.From(message), stoppingToken);
                     // signal for delivery
                     this.msgEvent.Set();
                 }
                 else
                 {
                     // NACK message
-                    appQueue.Reject(peekMessage.LookupId);
+                    appQueue.Reject(peekMessage.LookupId, tx);
                     this.log.LogWarning("Worker rejected message {MessageId}", peekMessage.Id);
                 }
                 // ACK message
@@ -94,7 +94,7 @@ sealed class Worker : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             // get next due-time from the db
-            var dueTime = await this.ms.GetDueTimeAsync(stoppingToken) ?? (DateTimeOffset.Now + this.options.WaitPeriod);
+            var dueTime = await this.db.GetDueTimeAsync(stoppingToken) ?? (DateTimeOffset.Now + this.options.WaitPeriod);
             var waitPeriod = dueTime - DateTimeOffset.Now;
             if (waitPeriod > TimeSpan.Zero)
             {
@@ -112,7 +112,7 @@ sealed class Worker : BackgroundService
             }
 
             // get the current message from the db
-            var messageRecord = await this.ms.GetAsync(stoppingToken);
+            var messageRecord = await this.db.GetAsync(stoppingToken);
             if (messageRecord is null)
             {
                 continue;
@@ -132,11 +132,11 @@ sealed class Worker : BackgroundService
                     if (this.options.Endpoint.AdministrationQueue is not null)
                     {
                         using var adminQ = this.mq.CreateReader(this.options.Endpoint.AdministrationQueue);
-                        var ack = await adminQ.ReadAsync(message.Id, MessageProperty.Class, this.options.Timeout, stoppingToken);
+                        using var ack = await adminQ.ReadAsync(message.Id, MessageProperty.Class, this.options.Timeout, stoppingToken);
 
                         if (ack.IsEmpty || ack.Class != MessageClass.AckReceive)
                         {
-                            await this.ms.RetryAsync(messageRecord.MessageId, stoppingToken);
+                            await this.db.RetryAsync(messageRecord.MessageId, stoppingToken);
                             continue;
                         }
                     }
@@ -152,12 +152,12 @@ sealed class Worker : BackgroundService
                 }
 
                 // delete the message from the db
-                await this.ms.RemoveAsync(messageRecord.MessageId, stoppingToken);
+                await this.db.RemoveAsync(messageRecord.MessageId, stoppingToken);
             }
             catch (Exception x)
             {
                 this.log.LogError(x, "Worker failed to send message to the queue {MessageQueue}", messageRecord.Destination);
-                await this.ms.RetryAsync(messageRecord.MessageId, stoppingToken);
+                await this.db.RetryAsync(messageRecord.MessageId, stoppingToken);
             }
         }
     }
