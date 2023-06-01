@@ -107,11 +107,40 @@ namespace Dodkin.Interop
             }
         }
 
-        private sealed class IntPropertyBox : StructPropertyBox<uint>
+        private sealed class IntPropertyBox : StructPropertyBox<int>
         {
-            public IntPropertyBox() : this(0u) { }
+            public IntPropertyBox() : this(0) { }
 
-            public IntPropertyBox(uint value) : base(value) { }
+            public IntPropertyBox(int value) : base(value) { }
+
+            public override MQPROPVARIANT Export(ref GCHandle handle) => new()
+            {
+                vt = (ushort)VarType.Int,
+                lVal = this.Value,
+            };
+
+            public override void Import(in MQPROPVARIANT variant, MQ.HR status)
+            {
+                this.Value = variant.lVal;
+            }
+
+            protected override int ReadOverride(ref Utf8JsonReader reader)
+            {
+                this.Value = reader.GetInt32();
+                return 4;
+            }
+
+            protected override void WriteOverride(Utf8JsonWriter writer, int size)
+            {
+                writer.WriteNumberValue(this.Value);
+            }
+        }
+
+        private sealed class UIntPropertyBox : StructPropertyBox<uint>
+        {
+            public UIntPropertyBox() : this(0u) { }
+
+            public UIntPropertyBox(uint value) : base(value) { }
 
             public override MQPROPVARIANT Export(ref GCHandle handle) => new()
             {
@@ -656,7 +685,7 @@ namespace Dodkin.Interop
         public string GetString(int stringId, int stringLengthId)
         {
             if (this.properties[stringId - this.baseId] is StringPropertyBox stringProp &&
-                this.properties[stringLengthId - this.baseId] is IntPropertyBox stringLengthProp)
+                this.properties[stringLengthId - this.baseId] is UIntPropertyBox stringLengthProp)
             {
                 return stringProp.GetValue((int)stringLengthProp.Value - 1);
             }
@@ -674,14 +703,14 @@ namespace Dodkin.Interop
             else
             {
                 SetValue(stringId, value);
-                SetValue(stringLengthId, value.Length + 1);
+                SetValue(stringLengthId, (uint)(value.Length + 1));
             }
         }
 
         public ReadOnlySpan<byte> GetArray(int arrayId, int arrayLengthId)
         {
             if (this.properties[arrayId - this.baseId] is ArrayPropertyBox arrayProp &&
-                this.properties[arrayLengthId - this.baseId] is IntPropertyBox arrayLengthProp)
+                this.properties[arrayLengthId - this.baseId] is UIntPropertyBox arrayLengthProp)
             {
                 return arrayProp.GetValue((int)arrayLengthProp.Value);
             }
@@ -699,7 +728,7 @@ namespace Dodkin.Interop
             else
             {
                 SetValue(arrayId, byteArray);
-                SetValue(arrayLengthId, byteArray.Length);
+                SetValue(arrayLengthId, (uint)byteArray.Length);
             }
         }
 
@@ -724,8 +753,8 @@ namespace Dodkin.Interop
                     byte val => new BytePropertyBox(val),
                     short val => new ShortPropertyBox((ushort)val),
                     ushort val => new ShortPropertyBox(val),
-                    int val => new IntPropertyBox((uint)val),
-                    uint val => new IntPropertyBox(val),
+                    int val => new IntPropertyBox(val),
+                    uint val => new UIntPropertyBox(val),
                     long val => new LongPropertyBox((ulong)val),
                     ulong val => new LongPropertyBox(val),
                     Guid guid when guid != default => new GuidPropertyBox(guid),
@@ -771,7 +800,7 @@ namespace Dodkin.Interop
             if (length <= 0)
             {
                 Init<ArrayPropertyBox>(propertyId);
-                Init<IntPropertyBox>(lengthPropertyId);
+                Init<UIntPropertyBox>(lengthPropertyId);
             }
             else
             {
@@ -782,7 +811,7 @@ namespace Dodkin.Interop
                 }
 
                 this.properties[propertyId - this.baseId] = new ArrayPropertyBox(new byte[length]);
-                this.properties[lengthPropertyId - this.baseId] = new IntPropertyBox((uint)length);
+                this.properties[lengthPropertyId - this.baseId] = new UIntPropertyBox((uint)length);
                 this.count += 2;
             }
         }
@@ -792,7 +821,7 @@ namespace Dodkin.Interop
             if (length <= 0)
             {
                 Init<StringPropertyBox>(propertyId);
-                Init<IntPropertyBox>(lengthPropertyId);
+                Init<UIntPropertyBox>(lengthPropertyId);
             }
             else
             {
@@ -803,7 +832,7 @@ namespace Dodkin.Interop
                 }
 
                 this.properties[propertyId - this.baseId] = new StringPropertyBox(length);
-                this.properties[lengthPropertyId - this.baseId] = new IntPropertyBox((uint)length);
+                this.properties[lengthPropertyId - this.baseId] = new UIntPropertyBox((uint)length);
                 this.count += 2;
             }
         }
@@ -1110,8 +1139,29 @@ namespace Dodkin.Interop
 
     sealed class QueueProperties : PropertyBag
     {
-        public QueueProperties()
-            : base(26, (int)(MQ.PROPID.Q.BASE + 1)) { }
+        public QueueProperties(bool initAll = false)
+            : base(26, (int)(MQ.PROPID.Q.BASE + 1))
+        {
+            if (initAll)
+            {
+                SetValue((int)MQ.PROPID.Q.INSTANCE, Guid.Empty);
+                SetValue((int)MQ.PROPID.Q.TYPE, Guid.Empty);
+                InitString((int)MQ.PROPID.Q.PATHNAME);
+                SetValue((int)MQ.PROPID.Q.JOURNAL, (byte)0);
+                SetValue((int)MQ.PROPID.Q.QUOTA, 0u);
+                SetValue((int)MQ.PROPID.Q.BASEPRIORITY, (short)0);
+                SetValue((int)MQ.PROPID.Q.JOURNAL_QUOTA, 0u);
+                InitString((int)MQ.PROPID.Q.LABEL);
+                SetValue((int)MQ.PROPID.Q.CREATE_TIME, 0);
+                SetValue((int)MQ.PROPID.Q.MODIFY_TIME, 0);
+                SetValue((int)MQ.PROPID.Q.AUTHENTICATE, (byte)0);
+                SetValue((int)MQ.PROPID.Q.PRIV_LEVEL, 0u);
+                SetValue((int)MQ.PROPID.Q.TRANSACTION, (byte)0);
+                InitString((int)MQ.PROPID.Q.PATHNAME_DNS);
+                InitString((int)MQ.PROPID.Q.MULTICAST_ADDRESS);
+                InitString((int)MQ.PROPID.Q.ADS_PATH);
+            }
+        }
 
         public static implicit operator QueueInfo(QueueProperties properties) => new(properties);
     }

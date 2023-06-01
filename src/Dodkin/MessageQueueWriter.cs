@@ -16,6 +16,8 @@
 
         public override MessageQueueName Name => this.cnn.QueueName;
 
+        public override bool IsTransactional => this.cnn.IsTransactional;
+
         internal override QueueHandle Handle => this.cnn.WriteHandle;
 
         public override void Dispose()

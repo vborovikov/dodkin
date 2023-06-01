@@ -114,9 +114,12 @@ enum VarType : ushort
 {
     None = 0,
     Null = 1,
+    Short = 2,
+    Int = 3,
     Byte = 17,
     UShort = 18,
     UInt = 19,
+    Long = 20,
     ULong = 21,
     AnsiString = 30,
     String = 31,

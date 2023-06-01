@@ -7,7 +7,7 @@
     /// <summary>
     /// Maintains a specific location in a queue when reading the queue's messages.
     /// </summary>
-    public class MessageQueueCursor : IMessageQueueCursor
+    public sealed class MessageQueueCursor : IMessageQueueCursor
     {
         private readonly MessageQueueReader reader;
         private readonly QueueCursorHandle cursorHandle;
@@ -20,6 +20,8 @@
         }
 
         public MessageQueueName Name => this.reader.Name;
+
+        public bool IsTransactional => this.reader.IsTransactional;
 
         public void Dispose()
         {

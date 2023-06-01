@@ -39,6 +39,9 @@ namespace Dodkin.Interop
         [DllImport(MQRT, EntryPoint = "MQGetQueueProperties", CharSet = CharSet.Unicode)]
         public static extern HR GetQueueProperties(string formatName, MQPROPS queueProperties);
 
+        [DllImport(MQRT, EntryPoint = "MQSetQueueProperties", CharSet = CharSet.Unicode)]
+        public static extern HR SetQueueProperties(string formatName, MQPROPS queueProperties);
+
         [DllImport(MQRT, EntryPoint = "MQGetOverlappedResult", CharSet = CharSet.Unicode)]
         public unsafe static extern HR GetOverlappedResult(NativeOverlapped* overlapped);
 

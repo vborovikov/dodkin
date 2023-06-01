@@ -16,7 +16,9 @@
             this.cnn = new QueueConnection(queueName, accessMode, shareMode);
         }
 
-        public override MessageQueueName Name => this.cnn.QueueName;
+        public sealed override MessageQueueName Name => this.cnn.QueueName;
+
+        public sealed override bool IsTransactional => this.cnn.IsTransactional;
 
         internal sealed override QueueHandle Handle => this.cnn.ReadHandle;
 

@@ -1,16 +1,30 @@
 ﻿namespace Dodkin
 {
     using System.Net;
+    using System.Reflection.PortableExecutable;
     using System.Text;
     using Interop;
 
     /// <summary>Represents a message queue.</summary>
-    public abstract class MessageQueue : IDisposable
+    public interface IMessageQueue : IDisposable
+    {
+        /// <summary>Gets the name of the message queue.</summary>
+        MessageQueueName Name { get; }
+
+        /// <summary>Gets a value indicating whether the message queue is transactional.</summary>
+        bool IsTransactional { get; }
+    }
+
+    /// <summary>Represents a message queue.</summary>
+    public abstract class MessageQueue : IMessageQueue
     {
         private const int DefaultQueueStorageSize = 20 * 1024 * 1024;
 
-        /// <summary>Gets the name of the message queue.</summary>
+        /// <inheritdoc />
         public abstract MessageQueueName Name { get; }
+
+        /// <inheritdoc />
+        public abstract bool IsTransactional { get; }
 
         internal abstract QueueHandle Handle { get; }
 
@@ -30,7 +44,7 @@
         public static bool TryCreate(MessageQueueName queueName, bool isTransactional = false, bool hasJournal = false,
             long maxStorageSize = DefaultQueueStorageSize, string? label = null, IPEndPoint? multicastAddress = null)
         {
-            var result = CreateQueue(queueName, isTransactional, hasJournal, maxStorageSize, label, multicastAddress);
+            var result = CreateQueue(queueName, isTransactional, hasJournal, maxStorageSize, label, multicastAddress, throwOnError: false);
             return !MQ.IsFatalError(result);
         }
 
@@ -47,8 +61,7 @@
             long maxStorageSize = DefaultQueueStorageSize, string? label = null, IPEndPoint? multicastAddress = null)
         {
             ArgumentNullException.ThrowIfNull(queueName);
-            var result = CreateQueue(queueName, isTransactional, hasJournal, maxStorageSize, label, multicastAddress);
-            MessageQueueException.ThrowOnError(result);
+            var result = CreateQueue(queueName, isTransactional, hasJournal, maxStorageSize, label, multicastAddress, throwOnError: true);
         }
 
         /// <summary>
@@ -106,13 +119,42 @@
         /// <param name="queueName">The name of the queue.</param>
         /// <param name="machine">The name of the machine.</param>
         /// <returns>The management information of the specified queue.</returns>
-        public static QueueManagementInfo GetQueueInfo(MessageQueueName queueName, string? machine = null)
+        /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <c>null</c>.</exception>
+        /// <exception cref="MessageQueueException">The queue does not exists or there was an error.</exception>
+        public static QueueManagementInfo GetQueueManagementInfo(MessageQueueName queueName, string? machine = null)
         {
             ArgumentNullException.ThrowIfNull(queueName);
 
             using var packedProperties = new QueueManagementProperties().Pack();
             MessageQueueException.ThrowOnError<MQ.PROPID.MGMT_QUEUE>(MQ.MgmtGetInfo(machine, $"QUEUE={queueName.FormatName}", packedProperties), packedProperties);
             return packedProperties.Unpack<QueueManagementProperties>();
+        }
+
+        /// <summary>Gets the information of the specified queue.</summary>
+        /// <param name="queueName">The name of the queue.</param>
+        /// <returns>The information of the specified queue.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <c>null</c>.</exception>
+        /// <exception cref="MessageQueueException">The queue does not exists or there was an error.</exception>
+        public static QueueInfo GetQueueInfo(MessageQueueName queueName)
+        {
+            ArgumentNullException.ThrowIfNull(queueName);
+
+            using var packedProperties = new QueueProperties(initAll: true).Pack();
+            MessageQueueException.ThrowOnError<MQ.PROPID.Q>(MQ.GetQueueProperties(queueName, packedProperties), packedProperties);
+            return packedProperties.Unpack<QueueProperties>();
+        }
+
+        /// <summary>Sets the information of the specified queue.</summary>
+        /// <param name="queueName">The name of the queue.</param>
+        /// <param name="queueInfo">The queue information.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <c>null</c>.</exception>
+        /// <exception cref="MessageQueueException">The queue does not exists or there was an error.</exception>
+        public static void SetQueueInfo(MessageQueueName queueName, in QueueInfo queueInfo)
+        {
+            ArgumentNullException.ThrowIfNull(queueName);
+
+            using var packedProperties = queueInfo.Properties.Pack();
+            MessageQueueException.ThrowOnError<MQ.PROPID.Q>(MQ.SetQueueProperties(queueName, packedProperties), packedProperties);
         }
 
         /// <summary>Purges the specified queue.</summary>
@@ -125,7 +167,7 @@
         }
 
         private static MQ.HR CreateQueue(MessageQueueName queueName, bool isTransactional, bool hasJournal,
-            long maxStorageSize, string? label, IPEndPoint? multicastAddress)
+            long maxStorageSize, string? label, IPEndPoint? multicastAddress, bool throwOnError)
         {
             if (queueName is null)
                 return MQ.HR.ERROR_ILLEGAL_QUEUE_PATHNAME;
@@ -146,10 +188,10 @@
             if (multicastAddress is not null)
                 queueInfo.MulticastAddress = multicastAddress.ToString();
 
-            return CreateQueue(queueInfo, out var formatName);
+            return CreateQueue(throwOnError, queueInfo, out var formatName);
         }
 
-        private static MQ.HR CreateQueue(in QueueInfo queueInfo, out string formatName)
+        private static MQ.HR CreateQueue(bool throwOnError, in QueueInfo queueInfo, out string formatName)
         {
             var formatNameBuilder = new StringBuilder(124);
             var formatNameLength = formatNameBuilder.Capacity;
@@ -164,6 +206,11 @@
 
             formatNameBuilder.Length = formatNameLength - 1;
             formatName = formatNameBuilder.ToString();
+
+            if (throwOnError)
+            {
+                MessageQueueException.ThrowOnError<MQ.PROPID.Q>(result, packedQueueProps);
+            }
             return result;
         }
 

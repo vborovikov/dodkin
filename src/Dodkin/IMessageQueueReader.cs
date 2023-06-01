@@ -3,7 +3,7 @@
     /// <summary>
     /// Represents a message queue opened for peeking at or retrieving messages.
     /// </summary>
-    public interface IMessageQueueReader : IDisposable
+    public interface IMessageQueueReader : IMessageQueue
     {
         MessageQueueName Name { get; }
 

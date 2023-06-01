@@ -3,7 +3,7 @@
     /// <summary>
     /// Represents a message queue opened for sending messages.
     /// </summary>
-    public interface IMessageQueueWriter : IDisposable
+    public interface IMessageQueueWriter : IMessageQueue
     {
         MessageQueueName Name { get; }
 

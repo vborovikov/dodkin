@@ -2,13 +2,25 @@
 {
     using Interop;
 
+    /// <summary>
+    /// Specifies the privacy level that is required by the queue.
+    /// </summary>
     public enum QueuePrivacyLevel : uint
     {
+        /// <summary>The queue accepts only non-private (clear) messages.</summary>
         None,
+        /// <summary>
+        /// The default. The queue does not enforce privacy. 
+        /// It accepts private (encrypted) messages and non-private (clear) messages.
+        /// </summary>
         Optional,
+        /// <summary>The queue accepts only private (encrypted) messages.</summary>
         Body,
     }
 
+    /// <summary>
+    /// Provides information about a queue.
+    /// </summary>
     public readonly struct QueueInfo : IDisposable
     {
         private readonly QueueProperties properties;
@@ -54,7 +66,7 @@
         public short BasePriority
         {
             get => (short)this.properties.GetValue<ushort>((int)MQ.PROPID.Q.BASEPRIORITY);
-            set => this.properties.SetValue((int)MQ.PROPID.Q.QUOTA, (ushort)value);
+            set => this.properties.SetValue((int)MQ.PROPID.Q.BASEPRIORITY, (ushort)value);
         }
 
         public long JournalQuota
@@ -88,7 +100,7 @@
         public QueuePrivacyLevel PrivacyLevel
         {
             get => (QueuePrivacyLevel)this.properties.GetValue<uint>((int)MQ.PROPID.Q.PRIV_LEVEL);
-            set => this.properties.SetValue((int)MQ.PROPID.Q.AUTHENTICATE, (uint)value);
+            set => this.properties.SetValue((int)MQ.PROPID.Q.PRIV_LEVEL, (uint)value);
         }
 
         public bool IsTransactional
