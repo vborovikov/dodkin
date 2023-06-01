@@ -1,8 +1,10 @@
 namespace Dodkin.Dispatch;
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Relay.RequestModel;
+using MsmqMessage = Dodkin.Message;
 
 public interface IQueueRequestDispatcher : IRequestDispatcher
 {
@@ -11,8 +13,13 @@ public interface IQueueRequestDispatcher : IRequestDispatcher
 
 public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher
 {
-    public QueueRequestDispatcher(string inputQueuePath, string outputQueuePath, TimeSpan? timeout = null)
-        : base(inputQueuePath, outputQueuePath, timeout) { }
+    private readonly IMessageQueueWriter requestQ;
+
+    public QueueRequestDispatcher(MessageQueueName requestQueueName, MessageEndpoint endpoint, TimeSpan? timeout = null)
+        : base(endpoint, timeout)
+    {
+        this.requestQ = new MessageQueueWriter(requestQueueName);
+    }
 
     public Task ExecuteAsync<TCommand>(TCommand command) where TCommand : ICommand
     {
@@ -23,6 +30,13 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher
     public Task<TResult> RunAsync<TResult>(IQuery<TResult> query) => RunWaitAsync(query, null);
 
     public Task<TResult> RunAsync<TResult>(IQuery<TResult> query, TimeSpan timeout) => RunWaitAsync(query, timeout);
+
+    protected sealed override Task SendMessageAsync(MsmqMessage message, MessageQueueName? destinationQueue, CancellationToken cancellationToken)
+    {
+        //todo: use transaction if needed
+        this.requestQ.Write(message, null);
+        return Task.CompletedTask;
+    }
 
     private async Task<TResult> RunWaitAsync<TResult>(IQuery<TResult> query, TimeSpan? timeout)
     {

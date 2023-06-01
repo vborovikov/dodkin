@@ -6,6 +6,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Relay.RequestModel;
 using Relay.RequestModel.Default;
+using MsmqMessage = Dodkin.Message;
 
 public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
 {
@@ -22,10 +23,30 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
     }
 
     private readonly IRequestDispatcher requestDispatcher;
+    private readonly LRUCache<MessageQueueName, IMessageQueueWriter> responseCache;
 
-    protected QueueRequestHandler(string requestQueuePath, string responseQueuePath) : base(requestQueuePath, responseQueuePath)
+    protected QueueRequestHandler(MessageEndpoint endpoint) : base(endpoint)
     {
         this.requestDispatcher = new InternalRequestDispatcher(this);
+        this.responseCache = new(5);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        this.responseCache.Dispose();
+        base.Dispose(disposing);
+    }
+
+    protected sealed override Task SendMessageAsync(MsmqMessage message, MessageQueueName? destinationQueue, CancellationToken cancellationToken)
+    {
+        if (destinationQueue is null)
+            throw new ArgumentNullException(nameof(destinationQueue));
+
+        var responseQ = this.responseCache.GetOrAdd(destinationQueue, queueName => new MessageQueueWriter(queueName));
+        //todo: use transaction if needed
+        responseQ.Write(message, null);
+
+        return Task.CompletedTask;
     }
 
     public async Task ProcessAsync(CancellationToken cancellationToken)
@@ -108,7 +129,7 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
             try
             {
                 var result = await this.requestDispatcher.RunGenericAsync((IQuery)query.Request!);
-                await SendResultAsync(result, query.Id, cancellationToken);
+                await SendResultAsync(result, query, cancellationToken);
             }
             catch (Exception x) when (x is not OperationCanceledException)
             {
