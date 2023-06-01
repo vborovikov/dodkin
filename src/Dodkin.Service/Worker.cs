@@ -122,7 +122,7 @@ sealed class Worker : BackgroundService
                     using var message = messageRecord.CreateMessage(this.options.Endpoint, this.options.Timeout);
                     //todo: set ConnectorType and other properties specific to the connector app
                     using var destinationQ = this.mq.CreateWriter(messageRecord.Destination);
-                    destinationQ.Write(message, QueueTransaction.SingleMessage);
+                    destinationQ.Write(message, destinationQ.IsTransactional ? QueueTransaction.SingleMessage : null);
 
                     // wait until the ACK message
                     if (this.options.Endpoint.AdministrationQueue is not null)

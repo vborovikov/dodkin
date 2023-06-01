@@ -133,7 +133,7 @@ public class MessageQueueTests
         };
         await queueWriter.WriteAsync(msg);
 
-        var queueInfo = MessageQueue.GetQueueInfo(testQueueName);
+        var queueInfo = MessageQueue.GetQueueManagementInfo(testQueueName);
         Assert.IsNotNull(queueInfo.FormatName);
         Assert.AreNotEqual(0, queueInfo.MessageCount);
 

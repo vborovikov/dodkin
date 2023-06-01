@@ -43,8 +43,7 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
             throw new ArgumentNullException(nameof(destinationQueue));
 
         var responseQ = this.responseCache.GetOrAdd(destinationQueue, queueName => new MessageQueueWriter(queueName));
-        //todo: use transaction if needed
-        responseQ.Write(message, null);
+        responseQ.Write(message, responseQ.IsTransactional ? QueueTransaction.SingleMessage : null);
 
         return Task.CompletedTask;
     }

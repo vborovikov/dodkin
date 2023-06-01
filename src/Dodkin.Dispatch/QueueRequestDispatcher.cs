@@ -33,8 +33,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher
 
     protected sealed override Task SendMessageAsync(MsmqMessage message, MessageQueueName? destinationQueue, CancellationToken cancellationToken)
     {
-        //todo: use transaction if needed
-        this.requestQ.Write(message, null);
+        this.requestQ.Write(message, this.requestQ.IsTransactional ? QueueTransaction.SingleMessage : null);
         return Task.CompletedTask;
     }
 
