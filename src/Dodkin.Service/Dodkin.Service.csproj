@@ -10,7 +10,7 @@
 
   <PropertyGroup>
     <Title>Dodkin Service</Title>
-    <Description>Dodkin's Job</Description>
+    <Description>Future message delivery service</Description>
   </PropertyGroup>
 
   <ItemGroup>

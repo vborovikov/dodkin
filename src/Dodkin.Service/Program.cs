@@ -3,20 +3,17 @@ namespace Dodkin.Service;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Data;
+using Delivery;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.EventLog;
-using Delivery;
 
 record ServiceOptions
 {
     public const string ServiceName = "Dodkin";
 
     public MessageEndpoint Endpoint { get; init; } = MessageEndpoint.FromName(ServiceName.ToLowerInvariant());
-
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(3);
-
     public TimeSpan WaitPeriod { get; init; } = TimeSpan.FromDays(1);
-
     public int RetryCount { get; init; } = MessageRecord.MaxRetryCount;
 }
 
@@ -62,8 +59,8 @@ static class Program
             });
 
             // db
-            services.AddSingleton<IDbFactory>(_ => new DbFactory(SqlClientFactory.Instance,
-                hostContext.Configuration.GetConnectionString("Service")));
+            services.AddSingleton(_ => SqlClientFactory.Instance.CreateDataSource(
+                hostContext.Configuration.GetConnectionString("Service")!));
             services.AddSingleton<IMessageStore, MessageStore>();
             // mq
             services.AddSingleton<IMessageQueueFactory, MessageQueueFactory>();

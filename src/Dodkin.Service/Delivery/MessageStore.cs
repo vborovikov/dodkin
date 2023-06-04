@@ -1,9 +1,9 @@
 ﻿namespace Dodkin.Service.Delivery;
 
 using System;
+using System.Data.Common;
 using System.Threading.Tasks;
 using Dapper;
-using Data;
 using Dodkin;
 
 interface IMessageStore
@@ -17,10 +17,10 @@ interface IMessageStore
 
 sealed class MessageStore : IMessageStore
 {
-    private readonly IDbFactory db;
+    private readonly DbDataSource db;
     private readonly ILogger<MessageStore> log;
 
-    public MessageStore(IDbFactory db, ILogger<MessageStore> log)
+    public MessageStore(DbDataSource db, ILogger<MessageStore> log)
     {
         this.db = db;
         this.log = log;

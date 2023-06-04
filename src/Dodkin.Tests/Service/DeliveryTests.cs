@@ -37,7 +37,7 @@ public class DeliveryTests
     {
         worker = new Worker(new WorkerOptions(), new MessageQueueFactory(),
             new MessageStore(
-                new DbFactory(SqlClientFactory.Instance, @"Data Source=(LocalDB)\SqlLocalDB15;Initial Catalog=Dodkin;Integrated Security=SSPI;"),
+                SqlClientFactory.Instance.CreateDataSource(@"Data Source=(LocalDB)\SqlLocalDB15;Initial Catalog=Dodkin;Integrated Security=SSPI;"),
                 new Logger<MessageStore>(new LoggerFactory())),
             new Logger<Worker>(new LoggerFactory()));
 
