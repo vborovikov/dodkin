@@ -11,6 +11,7 @@
   <PropertyGroup>
     <Title>Dodkin Service</Title>
     <Description>Future message delivery service</Description>
+    <ApplicationIcon>Properties\icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,6 +25,10 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>Dodkin.Tests</_Parameter1>
     </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Properties\icon.ico" />
   </ItemGroup>
 
   <ItemGroup>
