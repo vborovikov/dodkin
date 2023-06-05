@@ -6,11 +6,10 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Relay.RequestModel;
-using MsmqMessage = Dodkin.Message;
 
 public abstract class QueueOperator : IDisposable
 {
-    protected record Message(MessageId Id, MessageQueueName? ResponseQueue, IRequest? Request)
+    protected record Envelope(MessageId Id, MessageQueueName? ResponseQueue, IRequest? Request)
     {
         public bool IsEmpty => this.Request is null;
     };
@@ -56,19 +55,19 @@ public abstract class QueueOperator : IDisposable
         return SendResultAsync(request, default, cancellationToken);
     }
 
-    protected async Task<MessageId> SendResultAsync(object result, Message? original, CancellationToken cancellationToken)
+    protected async Task<MessageId> SendResultAsync(object result, Envelope? original, CancellationToken cancellationToken)
     {
         using var message = CreateMessage(result, original?.Id ?? default);
         await SendMessageAsync(message, original?.ResponseQueue, cancellationToken);
         return message.Id;
     }
 
-    protected abstract Task SendMessageAsync(MsmqMessage message, MessageQueueName? destinationQueue, CancellationToken cancellationToken);
+    protected abstract Task SendMessageAsync(Message message, MessageQueueName? destinationQueue, CancellationToken cancellationToken);
 
-    protected async Task<Message> ReceiveRequestAsync(CancellationToken cancellationToken)
+    protected async Task<Envelope> ReceiveRequestAsync(CancellationToken cancellationToken)
     {
         using var message = await this.inputQueue.ReadAsync(MessageProperties, cancellationToken: cancellationToken);
-        return new Message(message.Id,
+        return new Envelope(message.Id,
             MessageQueueName.TryParse(message.ResponseQueue, out var responseQueue) ? responseQueue : null,
             ReadMessage(message) as IRequest);
     }
@@ -86,10 +85,10 @@ public abstract class QueueOperator : IDisposable
         return body is null ? default! : (TResult)body;
     }
 
-    private MsmqMessage CreateMessage(object body, in MessageId corellationId = default)
+    private Message CreateMessage(object body, in MessageId corellationId = default)
     {
         var bodyType = body.GetType();
-        var message = new MsmqMessage(JsonSerializer.SerializeToUtf8Bytes(body),
+        var message = new Message(JsonSerializer.SerializeToUtf8Bytes(body),
             JsonSerializer.SerializeToUtf8Bytes<string>(bodyType.AssemblyQualifiedName!))
         {
             CorrelationId = corellationId,
@@ -100,7 +99,7 @@ public abstract class QueueOperator : IDisposable
         return message;
     }
 
-    private static object? ReadMessage(in MsmqMessage message)
+    private static object? ReadMessage(in Message message)
     {
         var bodyType = FindBodyType(message);
         if (bodyType is not null)
@@ -112,7 +111,7 @@ public abstract class QueueOperator : IDisposable
         return null;
     }
 
-    private static Type? FindBodyType(in MsmqMessage message)
+    private static Type? FindBodyType(in Message message)
     {
         var bodyTypeName = JsonSerializer.Deserialize<string>(message.Extension);
         if (bodyTypeName is null)

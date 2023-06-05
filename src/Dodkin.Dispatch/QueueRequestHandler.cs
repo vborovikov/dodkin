@@ -6,7 +6,6 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Relay.RequestModel;
 using Relay.RequestModel.Default;
-using MsmqMessage = Dodkin.Message;
 
 public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
 {
@@ -31,13 +30,19 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
         this.responseCache = new(5);
     }
 
+    protected QueueRequestHandler(MessageEndpoint endpoint, IRequestDispatcher requestDispatcher) : base(endpoint)
+    {
+        this.requestDispatcher = requestDispatcher;
+        this.responseCache = new(5);
+    }
+
     protected override void Dispose(bool disposing)
     {
         this.responseCache.Dispose();
         base.Dispose(disposing);
     }
 
-    protected sealed override Task SendMessageAsync(MsmqMessage message, MessageQueueName? destinationQueue, CancellationToken cancellationToken)
+    protected sealed override Task SendMessageAsync(Message message, MessageQueueName? destinationQueue, CancellationToken cancellationToken)
     {
         if (destinationQueue is null)
             throw new ArgumentNullException(nameof(destinationQueue));
@@ -55,7 +60,7 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
             SingleReader = true,
             SingleWriter = true,
         });
-        var queryChannel = Channel.CreateUnbounded<Message>(new UnboundedChannelOptions
+        var queryChannel = Channel.CreateUnbounded<Envelope>(new UnboundedChannelOptions
         {
             SingleReader = true,
             SingleWriter = true,
@@ -67,7 +72,7 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
             HandleQueriesAsync(queryChannel, cancellationToken));
     }
 
-    private async Task ReceiveRequestsAsync(ChannelWriter<ICommand> commandWriter, ChannelWriter<Message> queryWriter, CancellationToken cancellationToken)
+    private async Task ReceiveRequestsAsync(ChannelWriter<ICommand> commandWriter, ChannelWriter<Envelope> queryWriter, CancellationToken cancellationToken)
     {
         try
         {
@@ -121,7 +126,7 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
         }
     }
 
-    private async Task HandleQueriesAsync(ChannelReader<Message> queryReader, CancellationToken cancellationToken)
+    private async Task HandleQueriesAsync(ChannelReader<Envelope> queryReader, CancellationToken cancellationToken)
     {
         await foreach (var query in queryReader.ReadAllAsync(cancellationToken))
         {

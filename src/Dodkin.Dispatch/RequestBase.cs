@@ -2,7 +2,6 @@
 
 using System.Text.Json.Serialization;
 using System.Threading;
-using Relay.InteractionModel;
 using Relay.RequestModel;
 
 public abstract class RequestBase : IRequest

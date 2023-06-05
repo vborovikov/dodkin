@@ -4,7 +4,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Relay.RequestModel;
-using MsmqMessage = Dodkin.Message;
 
 public interface IQueueRequestDispatcher : IRequestDispatcher
 {
@@ -31,7 +30,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher
 
     public Task<TResult> RunAsync<TResult>(IQuery<TResult> query, TimeSpan timeout) => RunWaitAsync(query, timeout);
 
-    protected sealed override Task SendMessageAsync(MsmqMessage message, MessageQueueName? destinationQueue, CancellationToken cancellationToken)
+    protected sealed override Task SendMessageAsync(Message message, MessageQueueName? destinationQueue, CancellationToken cancellationToken)
     {
         this.requestQ.Write(message, this.requestQ.IsTransactional ? QueueTransaction.SingleMessage : null);
         return Task.CompletedTask;
