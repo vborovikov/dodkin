@@ -34,6 +34,16 @@
 
         public abstract string QueueName { get; }
 
+        public bool IsSubqueue
+        {
+            get
+            {
+                var queueName = this.QueueName;
+                var sepPos = queueName.LastIndexOf(";");
+                return sepPos > 0 && sepPos < (queueName.Length - 1);
+            }
+        }
+
         public abstract QueueType QueueType { get; }
 
         public abstract string FormatName { get; }
@@ -133,8 +143,8 @@
             var queueType = pathParts.Current;
             if (queueType.IsEmpty)
                 return false;
-            var isPrivate = pathParts.MoveNext() ? queueType.Equals(PrivateQueueMoniker, StringComparison.OrdinalIgnoreCase) : false;
-            
+            var isPrivate = pathParts.MoveNext() && queueType.Equals(PrivateQueueMoniker, StringComparison.OrdinalIgnoreCase);
+
             var queueName = pathParts.Current;
             if (queueName.IsEmpty || pathParts.MoveNext() || queueName.IndexOfAny(IllegalQueueNameChars) > 0)
                 return false;

@@ -180,4 +180,14 @@ public class MessageQueueNameTests
         EqualityTests.TestEqualObjects(mqn, mqnParsed);
     }
 
+    [DataTestMethod]
+    [DataRow(".\\private$\\test", false)]
+    [DataRow(".\\private$\\test;", false)]
+    [DataRow(".\\private$\\;test", false)]
+    [DataRow(".\\private$\\test;test", true)]
+    public void IsSubqueue_DifferentInput_Recognized(string input, bool expectedResult)
+    {
+        var mqn = MessageQueueName.Parse(input);
+        Assert.AreEqual(expectedResult, mqn.IsSubqueue);
+    }
 }
