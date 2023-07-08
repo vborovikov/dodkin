@@ -94,11 +94,13 @@ sealed class Worker : BackgroundService
             var waitPeriod = dueTime - DateTimeOffset.Now;
             if (waitPeriod > TimeSpan.Zero)
             {
-                this.msgEvent.Reset();
                 this.log.LogInformation("Waiting for {WaitPeriod} before delivering messages", waitPeriod.ToText());
 
                 // wait for it or a new message signal
                 await Task.WhenAny(Task.Delay(waitPeriod, stoppingToken), this.msgEvent.WaitAsync());
+                // reset the signal here
+                this.msgEvent.Reset();
+
                 // start again if wait period isn't over
                 waitPeriod = dueTime - DateTimeOffset.Now;
                 if (waitPeriod > TimeSpan.Zero)
