@@ -3,9 +3,11 @@
     using System.Diagnostics.CodeAnalysis;
 
     /// <summary>The message identifier</summary>
-    public readonly struct MessageId : IEquatable<MessageId>, IParsable<MessageId>, ISpanParsable<MessageId>
+    public readonly struct MessageId : IEquatable<MessageId>,
+        IParsable<MessageId>, ISpanParsable<MessageId>, IFormattable, ISpanFormattable
     {
-        internal const int Size = 20;
+        internal const int Size = 16 + 4;
+        internal const int Length = 36 + 1 + 10;
 
         private readonly Guid guid;
         private readonly uint id;
@@ -39,7 +41,7 @@
             if (separatorPos <= 0)
                 return false;
 
-            if (Guid.TryParse(span[..separatorPos], out var guid) && 
+            if (Guid.TryParse(span[..separatorPos], out var guid) &&
                 UInt32.TryParse(span[(separatorPos + 1)..], out var id))
             {
                 messageId = new MessageId(guid, id);
@@ -67,7 +69,7 @@
         {
             if (destination.Length < Size)
                 return false;
-            
+
             return this.guid.TryWriteBytes(destination[0..16]) &&
                 BitConverter.TryWriteBytes(destination[16..], this.id);
         }
@@ -85,6 +87,33 @@
                 return String.Empty;
 
             return $"{this.guid}\\{this.id}";
+        }
+
+        public string ToString(string? format, IFormatProvider? formatProvider) => ToString();
+
+        public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+        {
+            charsWritten = 0;
+
+            if (!this.guid.TryFormat(destination, out var guidCharsWritten))
+            {
+                return false;
+            }
+            if (guidCharsWritten >= destination.Length)
+            {
+                return false;
+            }
+            else
+            {
+                destination[guidCharsWritten++] = '\\';
+            }
+            if (!this.id.TryFormat(destination[guidCharsWritten..], out var idCharsWritten))
+            {
+                return false;
+            }
+
+            charsWritten = guidCharsWritten + idCharsWritten;
+            return true;
         }
 
         public override int GetHashCode() => HashCode.Combine(this.guid, this.id);
