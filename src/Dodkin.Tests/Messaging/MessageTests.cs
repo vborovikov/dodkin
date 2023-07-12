@@ -32,5 +32,13 @@
 
             Assert.IsFalse(message.Equals(emptyMsg));
         }
+
+        [TestMethod]
+        public void Serialize_EmptyMessage_IdNull()
+        {
+            var message = new Message();
+            var json = JsonSerializer.Serialize(message);
+            Assert.AreEqual("""{"MessageId":null}""", json);
+        }
     }
 }
