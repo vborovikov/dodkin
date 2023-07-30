@@ -7,13 +7,13 @@ using System.Threading.Tasks;
 using Relay.RequestModel;
 using Relay.RequestModel.Default;
 
-public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
+public abstract class QueueRequestHandlerBase : QueueOperator, IRequestDispatcher
 {
     private class InternalRequestDispatcher : DefaultRequestDispatcherBase
     {
-        private readonly QueueRequestHandler requestHandler;
+        private readonly QueueRequestHandlerBase requestHandler;
 
-        public InternalRequestDispatcher(QueueRequestHandler requestHandler)
+        public InternalRequestDispatcher(QueueRequestHandlerBase requestHandler)
         {
             this.requestHandler = requestHandler;
         }
@@ -24,17 +24,19 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
     private readonly IRequestDispatcher requestDispatcher;
     private readonly LRUCache<MessageQueueName, IMessageQueueWriter> responseCache;
 
-    protected QueueRequestHandler(MessageEndpoint endpoint) : base(endpoint)
+    protected QueueRequestHandlerBase(MessageEndpoint endpoint) : base(endpoint)
     {
         this.requestDispatcher = new InternalRequestDispatcher(this);
         this.responseCache = new(5);
     }
 
-    protected QueueRequestHandler(MessageEndpoint endpoint, IRequestDispatcher requestDispatcher) : base(endpoint)
+    protected QueueRequestHandlerBase(MessageEndpoint endpoint, IRequestDispatcher requestDispatcher) : base(endpoint)
     {
         this.requestDispatcher = requestDispatcher;
         this.responseCache = new(5);
     }
+
+    public abstract Task ProcessAsync(CancellationToken cancellationToken);
 
     protected override void Dispose(bool disposing)
     {
@@ -53,7 +55,26 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
         return Task.CompletedTask;
     }
 
-    public async Task ProcessAsync(CancellationToken cancellationToken)
+    protected Task<object> RunQueryAsync(IQuery query) =>
+        this.requestDispatcher.RunGenericAsync(query);
+
+    protected Task ExecuteCommandAsync(ICommand command) =>
+        this.requestDispatcher.ExecuteGenericAsync(command);
+
+    Task<TResult> IRequestDispatcher.RunAsync<TResult>(IQuery<TResult> query) =>
+        this.requestDispatcher.RunAsync(query);
+
+    Task IRequestDispatcher.ExecuteAsync<TCommand>(TCommand command) =>
+        this.requestDispatcher.ExecuteAsync(command);
+}
+
+public abstract class QueueRequestHandler : QueueRequestHandlerBase
+{
+    protected QueueRequestHandler(MessageEndpoint endpoint) : base(endpoint) { }
+
+    protected QueueRequestHandler(MessageEndpoint endpoint, IRequestDispatcher requestDispatcher) : base(endpoint, requestDispatcher) { }
+
+    public sealed override async Task ProcessAsync(CancellationToken cancellationToken)
     {
         var commandChannel = Channel.CreateUnbounded<ICommand>(new UnboundedChannelOptions
         {
@@ -117,7 +138,7 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
         {
             try
             {
-                await this.requestDispatcher.ExecuteGenericAsync(command);
+                await ExecuteCommandAsync(command);
             }
             catch (Exception x) when (x is not OperationCanceledException)
             {
@@ -132,7 +153,7 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
         {
             try
             {
-                var result = await this.requestDispatcher.RunGenericAsync((IQuery)query.Request!);
+                var result = await RunQueryAsync((IQuery)query.Request!);
                 await SendResultAsync(result, query, cancellationToken);
             }
             catch (Exception x) when (x is not OperationCanceledException)
@@ -141,10 +162,4 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
             }
         }
     }
-
-    Task<TResult> IRequestDispatcher.RunAsync<TResult>(IQuery<TResult> query) =>
-        this.requestDispatcher.RunAsync(query);
-
-    Task IRequestDispatcher.ExecuteAsync<TCommand>(TCommand command) =>
-        this.requestDispatcher.ExecuteAsync(command);
 }
