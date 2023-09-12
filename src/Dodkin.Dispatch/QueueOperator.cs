@@ -122,13 +122,31 @@ public abstract class QueueOperator : IDisposable
         bodyType = Type.GetType(bodyTypeName, throwOnError: false);
         if (bodyType is null && AssemblyQualifiedTypeName.TryParse(bodyTypeName, out var typeInfo))
         {
-            bodyType = InteractionAssembly.GetType(typeInfo.FullName, throwOnError: false) ??
-                Type.GetType(typeInfo.FullName, throwOnError: false);
+            bodyType =
+                InteractionAssembly.GetType(typeInfo.FullName, throwOnError: false) ??
+                Type.GetType(typeInfo.FullName, throwOnError: false) ??
+                FindBodyTypeByName(typeInfo.FullName);
         }
         if (bodyType is not null)
         {
             bodyTypeCache.Add(bodyTypeName, bodyType);
             return bodyType;
+        }
+
+        return null;
+    }
+
+    private static Type? FindBodyTypeByName(ReadOnlySpan<char> typeFullName)
+    {
+        var nameStart = typeFullName.LastIndexOf('.');
+        if (nameStart <= 0)
+            return null;
+
+        var typeName = typeFullName[(nameStart + 1)..];
+        foreach (var exportedType in InteractionAssembly.GetExportedTypes())
+        {
+            if (typeName.Equals(exportedType.Name, StringComparison.OrdinalIgnoreCase))
+                return exportedType;
         }
 
         return null;
