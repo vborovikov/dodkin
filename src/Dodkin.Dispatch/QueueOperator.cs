@@ -142,10 +142,11 @@ public abstract class QueueOperator : IDisposable
         if (nameStart <= 0)
             return null;
 
+        var requestType = typeof(IRequest);
         var typeName = typeFullName[(nameStart + 1)..];
         foreach (var exportedType in InteractionAssembly.GetExportedTypes())
         {
-            if (typeName.Equals(exportedType.Name, StringComparison.OrdinalIgnoreCase))
+            if (requestType.IsAssignableFrom(exportedType) && typeName.Equals(exportedType.Name, StringComparison.OrdinalIgnoreCase))
                 return exportedType;
         }
 
