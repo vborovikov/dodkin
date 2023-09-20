@@ -1,5 +1,6 @@
 namespace Dodkin.Tests.Messaging;
 
+using System.ComponentModel;
 using Dodkin.Tests.Tools;
 
 [TestClass]
@@ -189,5 +190,17 @@ public class MessageQueueNameTests
     {
         var mqn = MessageQueueName.Parse(input);
         Assert.AreEqual(expectedResult, mqn.IsSubqueue);
+    }
+
+    [DataTestMethod]
+    [DataRow(".\\private$\\test")]
+    [DataRow(".\\private$\\test;test")]
+    public void TypeConverter_InvariantString_ToMessageQueueName(string path)
+    {
+        var mqn = MessageQueueName.Parse(path);
+        var converter = TypeDescriptor.GetConverter(typeof(MessageQueueName));
+        Assert.IsNotNull(converter);
+        Assert.IsTrue(converter.CanConvertFrom(typeof(string)));
+        Assert.AreEqual(mqn, converter.ConvertFromInvariantString(path));
     }
 }
