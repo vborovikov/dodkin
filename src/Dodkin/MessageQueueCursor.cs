@@ -74,22 +74,11 @@
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, enumeratorCancellationToken);
             using var messageProperties = new MessageProperties(propertyFlags);
 
-            for (var peekAction = ReceiveAction.PeekCurrent; !cts.IsCancellationRequested; peekAction = ReceiveAction.PeekNext)
+            for (var peekAction = ReceiveAction.PeekCurrent; ; peekAction = ReceiveAction.PeekNext)
             {
-                var message = default(Message);
-
-                try
-                {
-                    message = await this.reader.ReceiveAsync(this.cursorHandle, peekAction, messageProperties, null, cts.Token).ConfigureAwait(false);
-                }
-                catch (TaskCanceledException)
-                {
-                    yield break;
-                }
-
+                var message = await this.reader.ReceiveAsync(this.cursorHandle, peekAction, messageProperties, null, cts.Token).ConfigureAwait(false);
                 yield return message;
             }
         }
-
     }
 }

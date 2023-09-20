@@ -49,7 +49,7 @@ sealed class Worker : BackgroundService
         using var serviceQ = this.mq.CreateSorter(this.options.Endpoint.ApplicationQueue);
         this.log.LogInformation("Worker started to receive messages at: {time}", DateTimeOffset.Now);
 
-        while (!stoppingToken.IsCancellationRequested)
+        while (true)
         {
             var peekMessage = await serviceQ.PeekAsync(MessageProperty.LookupId | MessageRecord.RequiredProperties,
                 cancellationToken: stoppingToken);
@@ -74,7 +74,7 @@ sealed class Worker : BackgroundService
                 // ACK message
                 tx.Commit();
             }
-            catch (Exception x)
+            catch (Exception x) when (x is not OperationCanceledException)
             {
                 this.log.LogError(x, "Worker failed to receive message {MessageId}", peekMessage.Id);
                 // NACK message
@@ -87,7 +87,7 @@ sealed class Worker : BackgroundService
     {
         this.log.LogInformation("Worker started to handle messages at: {time}", DateTimeOffset.Now);
 
-        while (!stoppingToken.IsCancellationRequested)
+        while (true)
         {
             // get next due-time from the db
             var dueTime = await this.db.GetDueTimeAsync(stoppingToken) ?? (DateTimeOffset.Now + this.options.WaitPeriod);
@@ -152,7 +152,7 @@ sealed class Worker : BackgroundService
                 // delete the message from the db
                 await this.db.RemoveAsync(messageRecord.MessageId, stoppingToken);
             }
-            catch (Exception x)
+            catch (Exception x) when (x is not OperationCanceledException)
             {
                 this.log.LogError(x, "Worker failed to send message to the queue {MessageQueue}", messageRecord.Destination);
                 await this.db.RetryAsync(messageRecord.MessageId, stoppingToken);

@@ -133,19 +133,9 @@
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, enumeratorCancellationToken);
             using var messageProperties = new MessageProperties(propertyFlags);
 
-            while (!cts.IsCancellationRequested)
+            while (true)
             {
-                var message = default(Message);
-
-                try
-                {
-                    message = await ReceiveAsync(cursorHandle, ReceiveAction.Receive, messageProperties, null, cts.Token).ConfigureAwait(false);
-                }
-                catch (TaskCanceledException)
-                {
-                    yield break;
-                }
-
+                var message = await ReceiveAsync(cursorHandle, ReceiveAction.Receive, messageProperties, null, cts.Token).ConfigureAwait(false);
                 yield return message;
             }
         }
