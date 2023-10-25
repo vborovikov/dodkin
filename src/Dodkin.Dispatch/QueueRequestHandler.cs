@@ -116,11 +116,7 @@ public abstract class QueueRequestHandler : QueueRequestHandlerBase
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception x)
+        catch (Exception x) when (x is not OperationCanceledException)
         {
             commandWriter.Complete(x);
             queryWriter.Complete(x);
