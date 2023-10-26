@@ -254,7 +254,7 @@ namespace Dodkin.Interop
             protected BufferPropertyBox(int size)
                 : base(new StrongBox<byte[]>(new byte[size])) { }
 
-            protected BufferPropertyBox(T value) : base(new StrongBox<byte[]>())
+            protected BufferPropertyBox(in T value) : base(new StrongBox<byte[]>())
             {
                 ((StrongBox<byte[]>)this.Box).Value = ToByteArray(value, null);
             }
@@ -296,21 +296,21 @@ namespace Dodkin.Interop
             public sealed override void Import(in MQPROPVARIANT variant, MQ.HR status) { }
 
             protected abstract T FromByteArray(byte[]? byteArray);
-            protected abstract byte[] ToByteArray(T value, byte[]? byteArray);
+            protected abstract byte[] ToByteArray(in T value, byte[]? byteArray);
         }
 
         private sealed class MessageIdPropertyBox : BufferPropertyBox<MessageId>
         {
             public MessageIdPropertyBox() : base(MessageId.Size) { }
 
-            public MessageIdPropertyBox(MessageId value) : base(value) { }
+            public MessageIdPropertyBox(in MessageId value) : base(value) { }
 
             protected override VarType Type => VarType.ByteArray;
 
             protected override MessageId FromByteArray(byte[]? byteArray) =>
                 byteArray is null ? default : new MessageId(byteArray);
 
-            protected override byte[] ToByteArray(MessageId value, byte[]? byteArray) =>
+            protected override byte[] ToByteArray(in MessageId value, byte[]? byteArray) =>
                 value.TryWriteBytes(byteArray) ? byteArray! : value.ToByteArray();
 
             protected override int ReadOverride(ref Utf8JsonReader reader)
@@ -392,7 +392,7 @@ namespace Dodkin.Interop
 
             protected override string FromByteArray(byte[]? byteArray) => StringFromByteArray(byteArray);
 
-            protected override byte[] ToByteArray(string value, byte[]? byteArray) => StringToByteArray(value, byteArray);
+            protected override byte[] ToByteArray(in string value, byte[]? byteArray) => StringToByteArray(value, byteArray);
 
             private static string StringFromByteArray(byte[]? byteArray, int length = 0)
             {
@@ -453,7 +453,7 @@ namespace Dodkin.Interop
             protected override Guid FromByteArray(byte[]? byteArray) =>
                 byteArray is null ? Guid.Empty : new(byteArray);
 
-            protected override byte[] ToByteArray(Guid value, byte[]? byteArray) =>
+            protected override byte[] ToByteArray(in Guid value, byte[]? byteArray) =>
                 value.TryWriteBytes(byteArray) ? byteArray! : value.ToByteArray();
 
             protected override int ReadOverride(ref Utf8JsonReader reader)
