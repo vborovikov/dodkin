@@ -55,6 +55,8 @@
 
         public static implicit operator string(MessageQueueName queueName) => queueName.FormatName;
 
+        public abstract MessageQueueName GetSubqueueName(string queueName);
+
         public sealed override string ToString() => this.FormatName;
 
         public sealed override int GetHashCode()
@@ -268,6 +270,17 @@
 
                 return $@"{this.address}\{this.QueueName}";
             }
+        }
+
+        public override MessageQueueName GetSubqueueName(string subqueueName)
+        {
+            ArgumentException.ThrowIfNullOrEmpty(subqueueName);
+            if (subqueueName.Length > 32)
+                throw new ArgumentOutOfRangeException(nameof(subqueueName));
+            if (this.protocol != ComputerAddressProtocol.OS || this.IsSubqueue)
+                throw new InvalidOperationException();
+
+            return new DirectFormatName($"{this.QueueName};{subqueueName}", this.QueueType, this.protocol, this.address);
         }
 
         protected override int GetHashCodeOverride() => HashCode.Combine(this.protocol, this.address);
