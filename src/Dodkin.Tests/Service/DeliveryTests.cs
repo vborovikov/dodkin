@@ -35,7 +35,7 @@ public class DeliveryTests
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
-        worker = new Worker(new WorkerOptions(), new MessageQueueFactory(),
+        worker = new Worker(new WorkerOptions(), MessageQueueFactory.Instance,
             new MessageStore(
                 SqlClientFactory.Instance.CreateDataSource(@"Data Source=(LocalDB)\SqlLocalDB15;Initial Catalog=Dodkin;Integrated Security=SSPI;"),
                 new Logger<MessageStore>(new LoggerFactory())),

@@ -28,7 +28,7 @@ public class MessageQueueTests
     {
         try
         {
-            var factory = new MessageQueueFactory();
+            var factory = MessageQueueFactory.Instance;
             var reader = factory.CreateReader(MessageQueueName.Parse(@".\private$\doesnotexist")) as MessageQueueReader;
             Assert.IsNotNull(reader);
             _ = reader.Name;

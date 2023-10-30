@@ -2,6 +2,10 @@
 {
     public sealed class MessageQueueFactory : IMessageQueueFactory
     {
+        public static readonly IMessageQueueFactory Instance = new MessageQueueFactory();
+
+        private MessageQueueFactory() { }
+
         public IMessageQueueWriter CreateWriter(MessageQueueName queueName)
         {
             return new MessageQueueWriter(queueName);

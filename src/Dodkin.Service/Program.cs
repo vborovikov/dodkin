@@ -63,7 +63,7 @@ static class Program
                 hostContext.Configuration.GetConnectionString("Service")!));
             services.AddSingleton<IMessageStore, MessageStore>();
             // mq
-            services.AddSingleton<IMessageQueueFactory, MessageQueueFactory>();
+            services.AddSingleton(MessageQueueFactory.Instance);
             // svc
             services.AddHostedService<Worker>();
         })
