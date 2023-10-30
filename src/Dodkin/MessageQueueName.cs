@@ -57,6 +57,11 @@
 
         public abstract MessageQueueName GetSubqueueName(string queueName);
 
+        public static MessageQueueName FromName(string queueName)
+        {
+            return new DirectFormatName(queueName, LocalComputer, isPrivate: true);
+        }
+
         public sealed override string ToString() => this.FormatName;
 
         public sealed override int GetHashCode()
