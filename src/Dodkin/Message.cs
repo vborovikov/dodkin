@@ -256,13 +256,13 @@
         public TimeSpan TimeToReachQueue
         {
             get => TimeSpan.FromSeconds(this.properties.GetValue<uint>((int)MQ.PROPID.M.TIME_TO_REACH_QUEUE));
-            set => this.properties.SetValue((int)MQ.PROPID.M.TIME_TO_REACH_QUEUE, (uint)value.TotalSeconds);
+            set => this.properties.SetValue((int)MQ.PROPID.M.TIME_TO_REACH_QUEUE, (uint)Math.Ceiling(value.TotalSeconds));
         }
 
         public TimeSpan TimeToBeReceived
         {
             get => TimeSpan.FromSeconds(this.properties.GetValue<uint>((int)MQ.PROPID.M.TIME_TO_BE_RECEIVED));
-            set => this.properties.SetValue((int)MQ.PROPID.M.TIME_TO_BE_RECEIVED, (uint)value.TotalSeconds);
+            set => this.properties.SetValue((int)MQ.PROPID.M.TIME_TO_BE_RECEIVED, (uint)Math.Ceiling(value.TotalSeconds));
         }
 
         public string ResponseQueue
