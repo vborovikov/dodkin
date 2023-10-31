@@ -27,11 +27,11 @@
             this.cache.Clear();
         }
 
-        public TValue GetOrAdd(TKey key, Func<TKey, TValue> valueFactory)
+        public TValue GetOrAdd<TArg>(TKey key, Func<TKey, TArg, TValue> valueFactory, TArg factoryArgument)
         {
-            return this.cache.GetOrAdd(key, k =>
+            return this.cache.GetOrAdd(key, (k, arg) =>
             {
-                TValue value = valueFactory(k);
+                TValue value = valueFactory(k, arg);
                 lock (this.syncRoot)
                 {
                     this.accessOrder.Enqueue(k);
@@ -45,7 +45,7 @@
                     }
                 }
                 return value;
-            });
+            }, factoryArgument);
         }
     }
 }

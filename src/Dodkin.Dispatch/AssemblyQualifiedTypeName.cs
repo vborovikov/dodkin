@@ -201,7 +201,7 @@ sealed class AssemblyQualifiedTypeName : IParsable<AssemblyQualifiedTypeName>, I
 
         public TypeNamePart Current { get; private set; }
 
-        public TypeNamePartEnumerator GetEnumerator() => this;
+        public readonly TypeNamePartEnumerator GetEnumerator() => this;
 
         public bool MoveNext()
         {
@@ -229,9 +229,9 @@ sealed class AssemblyQualifiedTypeName : IParsable<AssemblyQualifiedTypeName>, I
                 span);
         }
 
-        public ReadOnlySpan<char> Current => this.parts.Current;
+        public readonly ReadOnlySpan<char> Current => this.parts.Current;
 
-        public TypeNameEnumerator GetEnumerator() => this;
+        public readonly TypeNameEnumerator GetEnumerator() => this;
 
         public bool MoveNext() => this.parts.MoveNext();
     }
@@ -250,7 +250,7 @@ sealed class AssemblyQualifiedTypeName : IParsable<AssemblyQualifiedTypeName>, I
 
         public ReadOnlySpan<char> Current { get; private set; }
 
-        public PartEnumerator GetEnumerator() => this;
+        public readonly PartEnumerator GetEnumerator() => this;
 
         public bool MoveNext()
         {
