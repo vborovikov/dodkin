@@ -160,7 +160,10 @@
     /// Represents the lookup identifier of the message.
     /// </summary>
     /// <param name="Value">The lookup identifier value.</param>
-    public readonly record struct MessageLookupId(ulong Value);
+    public readonly record struct MessageLookupId(ulong Value)
+    {
+        public override string ToString() => this.Value.ToString();
+    }
 
     /// <summary>
     /// Describes a set of message properties.
