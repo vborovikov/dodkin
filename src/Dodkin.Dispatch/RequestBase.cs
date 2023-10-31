@@ -4,12 +4,12 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using Relay.RequestModel;
 
-public abstract class RequestBase : IRequest
+public abstract record RequestBase : IRequest
 {
     [JsonIgnore]
     public CancellationToken CancellationToken { get; set; }
 }
 
-public abstract class Command : RequestBase, ICommand { }
+public abstract record Command : RequestBase, ICommand { }
 
-public abstract class Query<T> : RequestBase, IQuery<T> { }
+public abstract record Query<T> : RequestBase, IQuery<T> { }

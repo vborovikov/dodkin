@@ -1,28 +1,23 @@
 ﻿namespace Dodkin.Tests.Dispatch;
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Dodkin;
 using Dodkin.Dispatch;
 using Microsoft.Extensions.Logging;
 using Relay.RequestModel;
 
-class TestQuery : Query<string>
+record TestQuery : Query<string>
 {
 }
 
-class TestUnknownQuery : Query<string>
+record TestUnknownQuery : Query<string>
 {
 }
 
-class TestCommand : Command
+record TestCommand : Command
 {
 }
 
-class TestUnknownCommand : Command
+record TestUnknownCommand : Command
 {
 }
 
