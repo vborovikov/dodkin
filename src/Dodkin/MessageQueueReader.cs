@@ -108,10 +108,6 @@
                     this.cnn.Close();
                     continue;
                 }
-                else if (result == MQ.HR.ERROR_IO_TIMEOUT)
-                {
-                    return default;
-                }
                 else
                 {
                     MessageQueueException.ThrowOnError<MQ.PROPID.M>(result, packedProperties);

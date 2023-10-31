@@ -667,17 +667,19 @@ namespace Dodkin.Interop
             }
 
             [Conditional("DEBUG")]
-            internal void Dump<T>(IDictionary data)
-                where T : struct, Enum
+            internal void Dump<T>(IDictionary data) where T : struct, Enum => Dump(data, typeof(T));
+
+            [Conditional("DEBUG")]
+            internal void Dump(IDictionary data, Type propType)
             {
                 for (var i = 0; i != this.propIds.Length; ++i)
                 {
                     var propertyId = this.propIds[i];
                     var propertyStatus = (MQ.HR)this.propStatus[i];
 
-                    if (propertyId > 0 && propertyStatus != MQ.HR.OK)
+                    if (propertyId > 0 && propertyStatus != MQ.HR.OK && propertyStatus != MQ.HR.INFORMATION_PROPERTY_IGNORED)
                     {
-                        data.Add(Enum.GetName(typeof(T), propertyId)!, Enum.GetName(propertyStatus));
+                        data.Add(Enum.GetName(propType, propertyId)!, Enum.GetName(propertyStatus));
                     }
                 }
             }

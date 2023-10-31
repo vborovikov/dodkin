@@ -23,11 +23,18 @@ public class MessageQueueException : Exception
     internal static void ThrowIfNotOK(MQ.HR hresult)
     {
         if (hresult != MQ.HR.OK)
+        {
+            if (hresult == MQ.HR.ERROR_IO_TIMEOUT)
+                throw new TimeoutException { HResult = (int)hresult };
+
             throw new MessageQueueException(hresult);
+        }
     }
 
     internal static void ThrowOnError(MQ.HR hresult)
     {
+        if (hresult == MQ.HR.ERROR_IO_TIMEOUT)
+            throw new TimeoutException { HResult = (int)hresult };
         if (MQ.IsFatalError(hresult))
             throw new MessageQueueException(hresult);
     }
@@ -37,7 +44,8 @@ public class MessageQueueException : Exception
     {
         if (hresult != MQ.HR.OK)
         {
-            var ex = new MessageQueueException(hresult);
+            Exception ex = hresult == MQ.HR.ERROR_IO_TIMEOUT ?
+                new TimeoutException { HResult = (int)hresult } : new MessageQueueException(hresult);
 #if DEBUG
             package.Dump<T>(ex.Data);
 #endif
@@ -50,7 +58,8 @@ public class MessageQueueException : Exception
     {
         if (MQ.IsFatalError(hresult))
         {
-            var ex = new MessageQueueException(hresult);
+            Exception ex = hresult == MQ.HR.ERROR_IO_TIMEOUT ?
+                new TimeoutException { HResult = (int)hresult } : new MessageQueueException(hresult);
 #if DEBUG
             package.Dump<T>(ex.Data);
 #endif

@@ -141,17 +141,19 @@
             if (MQ.IsFatalError(result))
             {
                 // something went wrong
-                if (result == MQ.HR.ERROR_IO_TIMEOUT)
-                {
-                    this.taskSource.TrySetResult(default);
-                }
-                else if (result == MQ.HR.ERROR_OPERATION_CANCELLED)
+                if (result == MQ.HR.ERROR_OPERATION_CANCELLED)
                 {
                     this.taskSource.TrySetCanceled();
                 }
                 else
                 {
-                    this.taskSource.TrySetException(new MessageQueueException(result));
+                    Exception exception = result == MQ.HR.ERROR_IO_TIMEOUT ?
+                        new TimeoutException { HResult = (int)result } : new MessageQueueException(result);
+#if DEBUG
+                    this.packedProperties.Dump<MQ.PROPID.M>(exception.Data);
+#endif
+
+                    this.taskSource.TrySetException(exception);
                 }
 
                 return true;
