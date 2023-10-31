@@ -6,8 +6,10 @@ static class EventIds
 {
     // Messaging
 
-    public static readonly EventId MessageAckNack = new(1, "MessageAckNack");
-    public static readonly EventId ProcessingFailed = new(2, "ProcessingFailed");
+    public static readonly EventId ProcessingStarted = new(1, "ProcessingStarted");
+    public static readonly EventId ProcessingStopped = new(2, "ProcessingStopped");
+    public static readonly EventId ProcessingFailed = new(3, "ProcessingFailed");
+    public static readonly EventId MessageAckNack = new(4, "MessageAckNack");
 
     // Dispatcher events
 

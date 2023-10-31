@@ -63,12 +63,21 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
     Task IRequestDispatcher.ExecuteAsync<TCommand>(TCommand command) =>
         this.dispatcher.ExecuteAsync(command);
 
-    public Task ProcessAsync(CancellationToken cancellationToken)
+    public async Task ProcessAsync(CancellationToken cancellationToken)
     {
-        return Task.WhenAll(
-            DispatchRequestsAsync(cancellationToken),
-            ProcessCommandsAsync(cancellationToken),
-            ProcessQueriesAsync(cancellationToken));
+        try
+        {
+            this.log.LogInformation(EventIds.ProcessingStarted, "Processing started");
+
+            await Task.WhenAll(
+                DispatchRequestsAsync(cancellationToken),
+                ProcessCommandsAsync(cancellationToken),
+                ProcessQueriesAsync(cancellationToken)).ConfigureAwait(false);
+        }
+        finally
+        {
+            this.log.LogInformation(EventIds.ProcessingStopped, "Processing stopped");
+        }
     }
 
     private async Task DispatchRequestsAsync(CancellationToken cancellationToken)
@@ -138,7 +147,7 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
                 }
                 catch (Exception x) when (x is NotImplementedException || x.GetBaseException() is NotImplementedException)
                 {
-                    this.log.LogWarning(EventIds.CommandNotImplemented, x, "Command <{MessageId}>[{MessageLookupId}] not implemented",
+                    this.log.LogWarning(EventIds.CommandNotImplemented, x, "Command <{MessageId}>[{MessageLookupId}] handler not implemented",
                         message.Id, message.LookupId);
                 }
                 catch (Exception x) when (x is not OperationCanceledException)
@@ -183,7 +192,7 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
                     }
                     catch (Exception x) when (x is NotImplementedException || x.GetBaseException() is NotImplementedException)
                     {
-                        this.log.LogWarning(EventIds.QueryNotImplemented, x, "Query <{MessageId}>[{MessageLookupId}] not implemented",
+                        this.log.LogWarning(EventIds.QueryNotImplemented, x, "Query <{MessageId}>[{MessageLookupId}] handler not implemented",
                             message.Id, message.LookupId);
                     }
                     catch (Exception x) when (x is not OperationCanceledException)
