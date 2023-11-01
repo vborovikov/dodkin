@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 using Relay.RequestModel;
 using Relay.RequestModel.Default;
 
-public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
+public class QueueRequestHandler : QueueOperator, IRequestDispatcher
 {
     private const int ResponseCacheCapacity = 8;
     private const string CommandSubqueueName = "commands";
@@ -31,6 +31,9 @@ public abstract class QueueRequestHandler : QueueOperator, IRequestDispatcher
     private readonly ILogger log;
     private readonly IRequestDispatcher dispatcher;
     private readonly LRUCache<MessageQueueName, IMessageQueueWriter> responseCache;
+
+    public QueueRequestHandler(IRequestDispatcher requestDispatcher, MessageEndpoint endpoint, IMessageQueueFactory messageQueueFactory, ILogger logger)
+        : this(endpoint, messageQueueFactory, logger, requestDispatcher) { }
 
     protected QueueRequestHandler(MessageEndpoint endpoint, ILogger logger)
         : this(endpoint, MessageQueueFactory.Instance, logger, null)
