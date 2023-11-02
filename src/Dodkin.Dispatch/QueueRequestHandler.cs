@@ -40,7 +40,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     {
     }
 
-    protected QueueRequestHandler(MessageEndpoint endpoint, IMessageQueueFactory messageQueueFactory, ILogger logger, IRequestDispatcher? requestDispatcher = null)
+    protected QueueRequestHandler(MessageEndpoint endpoint, IMessageQueueFactory messageQueueFactory, ILogger logger,  IRequestDispatcher? requestDispatcher = null)
         : base(endpoint)
     {
         this.mq = messageQueueFactory;
@@ -48,6 +48,8 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         this.dispatcher = requestDispatcher ?? new InternalRequestDispatcher(this);
         this.responseCache = new(ResponseCacheCapacity);
     }
+
+    public ParallelOptions ParallelOptions { get; init; } = new();
 
     protected override void Dispose(bool disposing)
     {
@@ -139,27 +141,28 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             using var commandQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(CommandSubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
-            await foreach (var message in commandQ.ReadAllAsync(MessageProperties, cancellationToken))
-            {
-                try
+            await Parallel.ForEachAsync(commandQ.ReadAllAsync(MessageProperties, cancellationToken), CreateParallelOptions<ICommand>(cancellationToken),
+                async (message, _) =>
                 {
-                    var command = Read<ICommand>(message);
-                    await ExecuteCommandAsync(command);
-                    this.log.LogInformation(EventIds.CommandExecuted, "Executed command <{MessageId}>[{MessageLookupId}]",
-                        message.Id, message.LookupId);
-                }
-                catch (Exception x) when (x is NotImplementedException || x.GetBaseException() is NotImplementedException)
-                {
-                    this.log.LogWarning(EventIds.CommandNotImplemented, x, "Command <{MessageId}>[{MessageLookupId}] handler not implemented",
-                        message.Id, message.LookupId);
-                }
-                catch (Exception x) when (x is not OperationCanceledException)
-                {
-                    this.log.LogError(EventIds.CommandExecutionFailed, x, "Error executing command <{MessageId}>[{MessageLookupId}]",
-                        message.Id, message.LookupId);
-                    deadLetterQ.Write(WrapPoisonMessage(message, x), QueueTransaction.SingleMessage);
-                }
-            }
+                    try
+                    {
+                        var command = Read<ICommand>(message);
+                        await ExecuteCommandAsync(command);
+                        this.log.LogInformation(EventIds.CommandExecuted, "Executed command <{MessageId}>[{MessageLookupId}]",
+                            message.Id, message.LookupId);
+                    }
+                    catch (Exception x) when (x is NotImplementedException || x.GetBaseException() is NotImplementedException)
+                    {
+                        this.log.LogWarning(EventIds.CommandNotImplemented, x, "Command <{MessageId}>[{MessageLookupId}] handler not implemented",
+                            message.Id, message.LookupId);
+                    }
+                    catch (Exception x) when (x is not OperationCanceledException)
+                    {
+                        this.log.LogError(EventIds.CommandExecutionFailed, x, "Error executing command <{MessageId}>[{MessageLookupId}]",
+                            message.Id, message.LookupId);
+                        deadLetterQ.Write(WrapPoisonMessage(message, x), QueueTransaction.SingleMessage);
+                    }
+                });
         }
         catch (Exception x) when (x is not OperationCanceledException)
         {
@@ -175,9 +178,8 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             using var queryQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(QuerySubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
-            await Parallel.ForEachAsync(
-                queryQ.ReadAllAsync(MessageProperties, cancellationToken), cancellationToken,
-                async (message, cancellationToken) =>
+            await Parallel.ForEachAsync(queryQ.ReadAllAsync(MessageProperties, cancellationToken), CreateParallelOptions<IQuery>(cancellationToken),
+                async (message, _) =>
                 {
                     try
                     {
@@ -220,5 +222,27 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             BodyType = MessageBodyType.UnicodeString,
             Label = exception.Message,
         };
+    }
+
+    protected virtual ParallelOptions CreateParallelOptions<TRequest>(CancellationToken cancellationToken)
+        where TRequest : IRequest
+    {
+        var options = new ParallelOptions
+        {
+            CancellationToken = cancellationToken,
+            TaskScheduler = this.ParallelOptions.TaskScheduler,
+        };
+
+        if (this.ParallelOptions.CancellationToken != default && this.ParallelOptions.CancellationToken != CancellationToken.None)
+        {
+            options.CancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, this.ParallelOptions.CancellationToken).Token;
+        }
+
+        if (this.ParallelOptions.MaxDegreeOfParallelism > 0)
+        {
+            options.MaxDegreeOfParallelism = this.ParallelOptions.MaxDegreeOfParallelism;
+        }
+
+        return options;
     }
 }
