@@ -14,6 +14,8 @@ public interface IQueueRequestDispatcher : IRequestDispatcher
 
 public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher
 {
+    private static readonly TimeSpan DefaultScheduleTimeout = TimeSpan.FromSeconds(5);
+
     private readonly ILogger log;
     private readonly IMessageQueueWriter requestQ;
     private readonly IMessageQueueReader responseQ;
@@ -51,6 +53,19 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher
     public Task<TResult> RunAsync<TResult>(IQuery<TResult> query, TimeSpan timeout) =>
         RunWaitAsync(query, timeout);
 
+    public async Task ExecuteAsync<TCommand>(TCommand command, DateTimeOffset at) where TCommand : ICommand
+    {
+        if (at <= DateTimeOffset.Now)
+            throw new ArgumentOutOfRangeException(nameof(at));
+
+        using var message = CreateMessage(command);
+        message.TimeToBeReceived = DefaultScheduleTimeout;
+        message.Acknowledgment = MessageAcknowledgment.FullReceive;
+        message.AppSpecific = (uint)at.ToUnixTimeSeconds();
+
+        await ExecuteWaitAsync(message, MessageClass.AckReceive, DefaultScheduleTimeout, command.CancellationToken);
+    }
+
     private async Task ExecuteWaitAsync<TCommand>(TCommand command, TimeSpan? timeout) where TCommand : ICommand
     {
         using var message = CreateMessage(command, default, timeout);
@@ -63,6 +78,11 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher
             expectedAck = MessageClass.AckReceive;
         }
 
+        await ExecuteWaitAsync(message, expectedAck, timeout, command.CancellationToken);
+    }
+
+    private async Task ExecuteWaitAsync(Message message, MessageClass expectedAck, TimeSpan? timeout, CancellationToken cancellationToken)
+    {
         try
         {
             // send the request
@@ -70,7 +90,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher
             this.log.LogInformation(EventIds.CommandSent, "Sent command <{MessageId}> for execution", message.Id);
 
             // check the status
-            await EnsureMessageReceivedAsync(message.Id, expectedAck, timeout, command.CancellationToken);
+            await EnsureMessageReceivedAsync(message.Id, expectedAck, timeout, cancellationToken);
             this.log.LogInformation(EventIds.CommandConfirmed, "Confirmed command <{MessageId}> received for execution", message.Id);
         }
         catch (TimeoutException x)
