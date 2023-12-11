@@ -55,6 +55,9 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher
 
     public async Task ExecuteAsync<TCommand>(TCommand command, DateTimeOffset at) where TCommand : ICommand
     {
+        //todo: extract to new interface IRequestScheduler
+        //todo: add timeout argument
+
         if (at <= DateTimeOffset.Now)
             throw new ArgumentOutOfRangeException(nameof(at));
 
