@@ -12,7 +12,12 @@ public interface IQueueRequestDispatcher : IRequestDispatcher
     Task<TResult> RunAsync<TResult>(IQuery<TResult> query, TimeSpan timeout);
 }
 
-public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher
+public interface IQueueRequestScheduler : IQueueRequestDispatcher
+{
+    Task ExecuteAsync<TCommand>(TCommand command, DateTimeOffset at, TimeSpan? timeout = default) where TCommand : ICommand;
+}
+
+public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQueueRequestScheduler
 {
     private static readonly TimeSpan DefaultScheduleTimeout = TimeSpan.FromSeconds(5);
 
@@ -53,20 +58,20 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher
     public Task<TResult> RunAsync<TResult>(IQuery<TResult> query, TimeSpan timeout) =>
         RunWaitAsync(query, timeout);
 
-    public async Task ExecuteAsync<TCommand>(TCommand command, DateTimeOffset at) where TCommand : ICommand
+    public async Task ExecuteAsync<TCommand>(TCommand command, DateTimeOffset at, TimeSpan? timeout = default) where TCommand : ICommand
     {
-        //todo: extract to new interface IRequestScheduler
-        //todo: add timeout argument
-
         if (at <= DateTimeOffset.Now)
             throw new ArgumentOutOfRangeException(nameof(at));
 
+        if (timeout < TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(timeout));
+
         using var message = CreateMessage(command);
-        message.TimeToBeReceived = DefaultScheduleTimeout;
+        message.TimeToBeReceived = timeout ?? DefaultScheduleTimeout;
         message.Acknowledgment = MessageAcknowledgment.FullReceive;
         message.AppSpecific = (uint)at.ToUnixTimeSeconds();
 
-        await ExecuteWaitAsync(message, MessageClass.AckReceive, DefaultScheduleTimeout, command.CancellationToken);
+        await ExecuteWaitAsync(message, MessageClass.AckReceive, timeout ?? DefaultScheduleTimeout, command.CancellationToken);
     }
 
     private async Task ExecuteWaitAsync<TCommand>(TCommand command, TimeSpan? timeout) where TCommand : ICommand
