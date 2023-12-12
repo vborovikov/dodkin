@@ -8,7 +8,7 @@ static class EventIds
 
     public static readonly EventId ProcessingStarted = new(1, "ProcessingStarted");
     public static readonly EventId ProcessingStopped = new(2, "ProcessingStopped");
-    public static readonly EventId ProcessingFailed = new(3, "ProcessingFailed");
+    public static readonly EventId DispatchingFailed = new(3, "DispatchingFailed");
     public static readonly EventId MessageAckNack = new(4, "MessageAckNack");
 
     // Dispatcher events
@@ -26,11 +26,11 @@ static class EventIds
 
     // Handler events
 
-    public static readonly EventId RequestReceived = new(30, "RequestReceived");
-    public static readonly EventId RequestRejected = new(31, "RequestRejected");
+    public static readonly EventId MessageReceived = new(30, "MessageReceived");
+    public static readonly EventId MessageRejected = new(31, "MessageRejected");
     public static readonly EventId CommandRecognized = new(32, "CommandRecognized");
     public static readonly EventId QueryRecognized = new(33, "QueryRecognized");
-    public static readonly EventId RequestFailed = new(34, "RequestFailed");
+    public static readonly EventId MessageFailed = new(34, "MessageFailed");
 
     public static readonly EventId CommandExecuted = new(40, "CommandExecuted");
     public static readonly EventId CommandNotImplemented = new(41, "CommandNotImplemented");

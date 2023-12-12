@@ -74,15 +74,22 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         {
             this.log.LogInformation(EventIds.ProcessingStarted, "Processing started");
 
-            await Task.WhenAll(
-                DispatchRequestsAsync(cancellationToken),
-                ProcessCommandsAsync(cancellationToken),
-                ProcessQueriesAsync(cancellationToken)).ConfigureAwait(false);
+            await Task.WhenAll(GetProcessingTasks(cancellationToken)).ConfigureAwait(false);
         }
         finally
         {
             this.log.LogInformation(EventIds.ProcessingStopped, "Processing stopped");
         }
+    }
+
+    protected virtual ICollection<Task> GetProcessingTasks(CancellationToken cancellationToken)
+    {
+        return new List<Task>
+        {
+            DispatchRequestsAsync(cancellationToken),
+            ProcessCommandsAsync(cancellationToken),
+            ProcessQueriesAsync(cancellationToken),
+        };
     }
 
     private async Task DispatchRequestsAsync(CancellationToken cancellationToken)
@@ -96,7 +103,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             while (true)
             {
                 using var msg = await appQ.PeekAsync(MessageProperty.LookupId | MessageProperty.Extension, null, cancellationToken);
-                this.log.LogInformation(EventIds.RequestReceived, "Received request [{MessageLookupId}]", msg.LookupId);
+                this.log.LogInformation(EventIds.MessageReceived, "Received message [{MessageLookupId}]", msg.LookupId);
 
                 using var tx = new QueueTransaction();
                 try
@@ -115,7 +122,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                     else
                     {
                         appQ.Reject(msg.LookupId, tx);
-                        this.log.LogWarning(EventIds.RequestRejected, "Rejected request [{MessageLookupId}]", msg.LookupId);
+                        this.log.LogWarning(EventIds.MessageRejected, "Rejected message [{MessageLookupId}]", msg.LookupId);
                     }
 
                     tx.Commit();
@@ -123,13 +130,13 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                 catch (Exception x) when (x is not OperationCanceledException)
                 {
                     tx.Abort();
-                    this.log.LogError(EventIds.RequestFailed, x, "Error processing request [{MessageLookupId}]", msg.LookupId);
+                    this.log.LogError(EventIds.MessageFailed, x, "Error dispatching message [{MessageLookupId}]", msg.LookupId);
                 }
             }
         }
         catch (Exception x) when (x is not OperationCanceledException)
         {
-            this.log.LogError(EventIds.ProcessingFailed, x, "Error processing requests");
+            this.log.LogError(EventIds.DispatchingFailed, x, "Error dispatching messages");
             throw;
         }
     }
@@ -166,7 +173,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         }
         catch (Exception x) when (x is not OperationCanceledException)
         {
-            this.log.LogError(EventIds.ProcessingFailed, x, "Error processing commands");
+            this.log.LogError(EventIds.DispatchingFailed, x, "Error processing commands");
             throw;
         }
     }
@@ -210,7 +217,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         }
         catch (Exception x) when (x is not OperationCanceledException)
         {
-            this.log.LogError(EventIds.ProcessingFailed, x, "Error processing queries");
+            this.log.LogError(EventIds.DispatchingFailed, x, "Error processing queries");
             throw;
         }
     }
