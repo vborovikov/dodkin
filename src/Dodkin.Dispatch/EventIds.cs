@@ -28,9 +28,10 @@ static class EventIds
 
     public static readonly EventId MessageReceived = new(30, "MessageReceived");
     public static readonly EventId MessageRejected = new(31, "MessageRejected");
-    public static readonly EventId CommandRecognized = new(32, "CommandRecognized");
-    public static readonly EventId QueryRecognized = new(33, "QueryRecognized");
+    public static readonly EventId CommandDispatched = new(32, "CommandDispatched");
+    public static readonly EventId QueryDispatched = new(33, "QueryDispatched");
     public static readonly EventId MessageFailed = new(34, "MessageFailed");
+    public static readonly EventId RequestDispatched = new(35, "RequestDispatched");
 
     public static readonly EventId CommandExecuted = new(40, "CommandExecuted");
     public static readonly EventId CommandNotImplemented = new(41, "CommandNotImplemented");

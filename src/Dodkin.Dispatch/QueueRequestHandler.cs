@@ -14,6 +14,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     private const int ResponseCacheCapacity = 8;
     private const string CommandSubqueueName = "commands";
     private const string QuerySubqueueName = "queries";
+    private const string RequestSubqueueName = "requests";
 
     private sealed class InternalRequestDispatcher : DefaultRequestDispatcherBase
     {
@@ -40,7 +41,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     {
     }
 
-    protected QueueRequestHandler(MessageEndpoint endpoint, IMessageQueueFactory messageQueueFactory, ILogger logger,  IRequestDispatcher? requestDispatcher = null)
+    protected QueueRequestHandler(MessageEndpoint endpoint, IMessageQueueFactory messageQueueFactory, ILogger logger, IRequestDispatcher? requestDispatcher = null)
         : base(endpoint)
     {
         this.mq = messageQueueFactory;
@@ -48,6 +49,8 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         this.dispatcher = requestDispatcher ?? new InternalRequestDispatcher(this);
         this.responseCache = new(ResponseCacheCapacity);
     }
+
+    protected MessageProperty PeekProperties { get; init; } = MessageProperty.None;
 
     public ParallelOptions ParallelOptions { get; init; } = new();
 
@@ -97,32 +100,41 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         using var appQ = this.mq.CreateSorter(this.Endpoint.ApplicationQueue);
         using var cmdSQ = new Subqueue(this.Endpoint.ApplicationQueue.GetSubqueueName(CommandSubqueueName));
         using var qrySQ = new Subqueue(this.Endpoint.ApplicationQueue.GetSubqueueName(QuerySubqueueName));
+        using var reqSQ = new Subqueue(this.Endpoint.ApplicationQueue.GetSubqueueName(RequestSubqueueName));
 
         try
         {
             while (true)
             {
-                using var msg = await appQ.PeekAsync(MessageProperty.LookupId | MessageProperty.Extension, null, cancellationToken);
+                using var msg = await appQ.PeekAsync(MessageProperty.LookupId | MessageProperty.Extension | this.PeekProperties, null, cancellationToken);
                 this.log.LogInformation(EventIds.MessageReceived, "Received message [{MessageLookupId}]", msg.LookupId);
 
                 using var tx = new QueueTransaction();
                 try
                 {
-                    var requestType = FindBodyType(msg);
-                    if (typeof(ICommand).IsAssignableFrom(requestType))
+                    if (CanDispatchRequest(msg))
                     {
-                        appQ.Move(msg.LookupId, cmdSQ, tx);
-                        this.log.LogInformation(EventIds.CommandRecognized, "Recognized command [{MessageLookupId}]", msg.LookupId);
-                    }
-                    else if (typeof(IQuery).IsAssignableFrom(requestType))
-                    {
-                        appQ.Move(msg.LookupId, qrySQ, tx);
-                        this.log.LogInformation(EventIds.QueryRecognized, "Recognized query [{MessageLookupId}]", msg.LookupId);
+                        appQ.Move(msg.LookupId, reqSQ, tx);
+                        this.log.LogInformation(EventIds.RequestDispatched, "Dispatched request [{MessageLookupId}]", msg.LookupId);
                     }
                     else
                     {
-                        appQ.Reject(msg.LookupId, tx);
-                        this.log.LogWarning(EventIds.MessageRejected, "Rejected message [{MessageLookupId}]", msg.LookupId);
+                        var requestType = FindBodyType(msg);
+                        if (typeof(ICommand).IsAssignableFrom(requestType))
+                        {
+                            appQ.Move(msg.LookupId, cmdSQ, tx);
+                            this.log.LogInformation(EventIds.CommandDispatched, "Dispatched command [{MessageLookupId}]", msg.LookupId);
+                        }
+                        else if (typeof(IQuery).IsAssignableFrom(requestType))
+                        {
+                            appQ.Move(msg.LookupId, qrySQ, tx);
+                            this.log.LogInformation(EventIds.QueryDispatched, "Dispatched query [{MessageLookupId}]", msg.LookupId);
+                        }
+                        else
+                        {
+                            appQ.Reject(msg.LookupId, tx);
+                            this.log.LogWarning(EventIds.MessageRejected, "Rejected message [{MessageLookupId}]", msg.LookupId);
+                        }
                     }
 
                     tx.Commit();
@@ -140,6 +152,8 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             throw;
         }
     }
+
+    protected virtual bool CanDispatchRequest(in Message message) => false;
 
     private async Task ProcessCommandsAsync(CancellationToken cancellationToken)
     {
