@@ -10,7 +10,6 @@ interface IMessageStore
 {
     Task AddAsync(MessageRecord message, CancellationToken cancellationToken);
     Task<MessageRecord> GetAsync(CancellationToken cancellationToken);
-    Task<DateTimeOffset?> GetDueTimeAsync(CancellationToken cancellationToken);
     Task RemoveAsync(MessageId messageId, CancellationToken cancellationToken);
     Task RetryAsync(MessageId messageId, CancellationToken cancellationToken);
 }
@@ -76,17 +75,6 @@ sealed class MessageStore : IMessageStore
 
             throw;
         }
-    }
-
-    public async Task<DateTimeOffset?> GetDueTimeAsync(CancellationToken cancellationToken)
-    {
-        await using var cnn = await this.db.OpenConnectionAsync(cancellationToken);
-        return await cnn.QueryFirstOrDefaultAsync<DateTimeOffset?>(
-            """
-            select top 1 m.DueTime
-            from job.Delivery m
-            order by m.DueTime; 
-            """);
     }
 
     public async Task<MessageRecord> GetAsync(CancellationToken cancellationToken)

@@ -93,8 +93,15 @@ sealed class Messenger : QueueRequestHandler
 
         while (true)
         {
-            // get next due-time from the db
-            var dueTime = await this.db.GetDueTimeAsync(stoppingToken) ?? (DateTimeOffset.Now + this.options.WaitPeriod);
+            // get the current message from the db
+            var messageRecord = await this.db.GetAsync(stoppingToken);
+            if (messageRecord is null)
+            {
+                this.log.LogInformation(EventIds.Sending, "No message to send");
+            }
+
+            // get the wait period
+            var dueTime = messageRecord?.DueTime ?? (DateTimeOffset.Now + this.options.WaitPeriod);
             var waitPeriod = dueTime - DateTimeOffset.Now;
             if (waitPeriod > TimeSpan.Zero)
             {
@@ -109,15 +116,14 @@ sealed class Messenger : QueueRequestHandler
                 waitPeriod = dueTime - DateTimeOffset.Now;
                 if (waitPeriod > TimeSpan.Zero)
                 {
+                    // time to check the db again
                     continue;
                 }
             }
 
-            // get the current message from the db
-            var messageRecord = await this.db.GetAsync(stoppingToken);
             if (messageRecord is null)
             {
-                this.log.LogInformation(EventIds.Sending, "No message to send");
+                // we waited the whole wait period, check the db again
                 continue;
             }
 
