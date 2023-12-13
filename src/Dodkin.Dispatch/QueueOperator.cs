@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Relay.RequestModel;
 
 public abstract class QueueOperator : IDisposable
@@ -17,12 +18,20 @@ public abstract class QueueOperator : IDisposable
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
     private static Assembly? interactionAssembly;
 
-    protected QueueOperator(MessageEndpoint endpoint)
+    protected QueueOperator(MessageEndpoint endpoint, ILogger logger)
     {
         this.Endpoint = endpoint;
         this.Timeout = DefaultTimeout;
 
-        this.Endpoint.CreateIfNotExists(GetQueueLabel(), isTransactional: true);
+        try
+        {
+            this.Endpoint.CreateIfNotExists(GetQueueLabel(), isTransactional: true);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(EventIds.EndpointFailed, ex, "Failed to create message endpoint: {MessageEndpoint}.", this.Endpoint);
+            throw;
+        }
     }
 
     private string GetQueueLabel()
@@ -113,7 +122,11 @@ public abstract class QueueOperator : IDisposable
 
     protected static Type? FindBodyType(in Message message)
     {
-        var bodyTypeName = JsonSerializer.Deserialize<string>(message.Extension);
+        var bodyTypeBuffer = message.Extension;
+        if (bodyTypeBuffer.IsEmpty)
+            return null;
+
+        var bodyTypeName = JsonSerializer.Deserialize<string>(bodyTypeBuffer);
         if (bodyTypeName is null)
             return null;
         if (bodyTypeCache.TryGetValue(bodyTypeName, out var bodyType))

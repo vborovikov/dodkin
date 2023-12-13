@@ -31,7 +31,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
     { }
 
     public QueueRequestDispatcher(MessageQueueName requestQueueName, MessageEndpoint endpoint,
-        IMessageQueueFactory messageQueueFactory, ILogger logger) : base(endpoint)
+        IMessageQueueFactory messageQueueFactory, ILogger logger) : base(endpoint, logger)
     {
         this.log = logger;
         this.requestQ = messageQueueFactory.CreateWriter(requestQueueName);

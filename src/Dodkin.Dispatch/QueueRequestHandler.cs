@@ -14,7 +14,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     private const int ResponseCacheCapacity = 8;
     private const string CommandSubqueueName = "commands";
     private const string QuerySubqueueName = "queries";
-    private const string RequestSubqueueName = "requests";
+    protected const string RequestSubqueueName = "requests";
 
     private sealed class InternalRequestDispatcher : DefaultRequestDispatcherBase
     {
@@ -42,7 +42,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     }
 
     protected QueueRequestHandler(MessageEndpoint endpoint, IMessageQueueFactory messageQueueFactory, ILogger logger, IRequestDispatcher? requestDispatcher = null)
-        : base(endpoint)
+        : base(endpoint, logger)
     {
         this.mq = messageQueueFactory;
         this.log = logger;
@@ -163,11 +163,15 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
             await Parallel.ForEachAsync(commandQ.ReadAllAsync(MessageProperties, cancellationToken), CreateParallelOptions<ICommand>(cancellationToken),
-                async (message, _) =>
+                async (message, cancellationToken) =>
                 {
                     try
                     {
                         var command = Read<ICommand>(message);
+                        if (command is RequestBase request)
+                        {
+                            request.CancellationToken = cancellationToken;
+                        }
                         await ExecuteCommandAsync(command);
                         this.log.LogInformation(EventIds.CommandExecuted, "Executed command <{MessageId}>[{MessageLookupId}]",
                             message.Id, message.LookupId);
@@ -200,18 +204,21 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
             await Parallel.ForEachAsync(queryQ.ReadAllAsync(MessageProperties, cancellationToken), CreateParallelOptions<IQuery>(cancellationToken),
-                async (message, _) =>
+                async (message, cancellationToken) =>
                 {
                     try
                     {
                         var query = Read<IQuery>(message);
+                        if (query is RequestBase request)
+                        {
+                            request.CancellationToken = cancellationToken;
+                        }
                         var result = await RunQueryAsync(query);
                         this.log.LogInformation(EventIds.QueryExecuted, "Executed query <{MessageId}>[{MessageLookupId}]",
                             message.Id, message.LookupId);
 
                         using var response = CreateMessage(result, message.Id);
-                        var responseQ = this.responseCache.GetOrAdd(MessageQueueName.Parse(message.ResponseQueue),
-                            (queueName, mq) => mq.CreateWriter(queueName), this.mq);
+                        var responseQ = GetResponseQueue(MessageQueueName.Parse(message.ResponseQueue));
                         responseQ.Write(response, QueueTransaction.SingleMessage);
                         this.log.LogInformation(EventIds.QueryResultSent, "Sent query <{MessageId}>[{MessageLookupId}] result",
                             message.Id, message.LookupId);
@@ -236,7 +243,12 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         }
     }
 
-    private static Message WrapPoisonMessage(in Message message, Exception exception)
+    protected IMessageQueueWriter GetResponseQueue(MessageQueueName queueName)
+    {
+        return this.responseCache.GetOrAdd(queueName, (queueName, mq) => mq.CreateWriter(queueName), this.mq);
+    }
+
+    protected static Message WrapPoisonMessage(in Message message, Exception exception)
     {
         return new Message(Encoding.Unicode.GetBytes(exception.ToString()), JsonSerializer.SerializeToUtf8Bytes(message))
         {
