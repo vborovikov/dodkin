@@ -50,6 +50,8 @@ sealed class MessageStore : IMessageStore
                 "Failed to record message {MessageId} for future delivery to {Destination} at {DueTime}.",
                 message.MessageId, message.Destination, message.DueTime);
             await tx.RollbackAsync(cancellationToken);
+
+            throw;
         }
     }
 
@@ -71,6 +73,8 @@ sealed class MessageStore : IMessageStore
         {
             this.log.LogError(ex, "Failed to delete message {MessageId}.", messageId);
             await tx.RollbackAsync(cancellationToken);
+
+            throw;
         }
     }
 
@@ -113,7 +117,8 @@ sealed class MessageStore : IMessageStore
         catch (Exception)
         {
             await tx.RollbackAsync(cancellationToken);
-        }
 
+            // no throw
+        }
     }
 }

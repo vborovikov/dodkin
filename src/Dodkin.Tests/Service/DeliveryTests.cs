@@ -23,6 +23,9 @@ public class DeliveryTests
     private static readonly MessageEndpoint serviceEndpoint = MessageEndpoint.FromName("future-test");
     private static readonly MessageQueueName testAppQN = MessageQueueName.Parse(@".\private$\dodkin-service-test");
     private static readonly MessageQueueName testAdminQN = MessageQueueName.Parse(@".\private$\dodkin-service-test-admin");
+    private static ILoggerFactory logger;
+    private static RequestHandler handler;
+    private static Messenger messenger;
     private static Worker worker;
 
     private record Payload(string Data);
@@ -35,11 +38,18 @@ public class DeliveryTests
     [ClassInitialize]
     public static async Task ClassInitialize(TestContext context)
     {
-        worker = new Worker(new WorkerOptions(), MessageQueueFactory.Instance,
+        logger = LoggerFactory.Create(builder =>
+        {
+            builder.AddConsole();
+            builder.AddDebug();
+        });
+        handler = new RequestHandler();
+        messenger = new Messenger(new WorkerOptions(), MessageQueueFactory.Instance,
             new MessageStore(
                 SqlClientFactory.Instance.CreateDataSource(@"Data Source=(LocalDB)\SqlLocalDB15;Initial Catalog=Dodkin;Integrated Security=SSPI;"),
-                new Logger<MessageStore>(new LoggerFactory())),
-            new Logger<Worker>(new LoggerFactory()));
+                logger.CreateLogger<MessageStore>()),
+            handler, logger.CreateLogger<Messenger>());
+        worker = new Worker(messenger, logger.CreateLogger<Worker>());
 
         await worker.StartAsync(default);
 

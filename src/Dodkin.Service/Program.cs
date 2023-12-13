@@ -6,6 +6,7 @@ using Data;
 using Delivery;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.EventLog;
+using Relay.RequestModel;
 
 record ServiceOptions
 {
@@ -65,6 +66,8 @@ static class Program
             // mq
             services.AddSingleton(MessageQueueFactory.Instance);
             // svc
+            services.AddSingleton<IRequestDispatcher, RequestHandler>();
+            services.AddSingleton<Messenger>();
             services.AddHostedService<Worker>();
         })
         .UseWindowsService(options =>

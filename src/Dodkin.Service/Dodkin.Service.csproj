@@ -32,6 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Dodkin.Dispatch\Dodkin.Dispatch.csproj" />
     <ProjectReference Include="..\Dodkin\Dodkin.csproj" />
   </ItemGroup>
 </Project>
