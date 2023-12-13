@@ -72,10 +72,12 @@
             CancellationToken cancellationToken, [EnumeratorCancellation] CancellationToken enumeratorCancellationToken = default)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, enumeratorCancellationToken);
-            using var messageProperties = new MessageProperties(propertyFlags);
 
             for (var peekAction = ReceiveAction.PeekCurrent; ; peekAction = ReceiveAction.PeekNext)
             {
+                // creating message properties in a loop to enable concurrent enumeration
+
+                var messageProperties = new MessageProperties(propertyFlags);
                 var message = await this.reader.ReceiveAsync(this.cursorHandle, peekAction, messageProperties, null, cts.Token).ConfigureAwait(false);
                 yield return message;
             }
