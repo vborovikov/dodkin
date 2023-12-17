@@ -251,9 +251,9 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     protected static Message WrapPoisonMessage(in Message message, Exception exception)
     {
         var errorMessage = exception.Message;
-        if (errorMessage.Length > 250)
+        if (errorMessage.Length > 249)
         {
-            errorMessage = errorMessage[..250];
+            errorMessage = errorMessage[..249];
         }
 
         return new Message(Encoding.Unicode.GetBytes(exception.ToString()), JsonSerializer.SerializeToUtf8Bytes(message))
