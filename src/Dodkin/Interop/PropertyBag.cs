@@ -10,6 +10,9 @@ namespace Dodkin.Interop
 
     abstract class PropertyBag : IDisposable
     {
+        protected const int StringLength = 124;
+        protected const int ArrayLength = 256;
+
         protected abstract class PropertyBox
         {
             private readonly IStrongBox box;
@@ -810,7 +813,7 @@ namespace Dodkin.Interop
 
         protected void InitMessageId(int propertyId) => Init<MessageIdPropertyBox>(propertyId);
 
-        protected void InitArray(int propertyId, int lengthPropertyId, int length = 256)
+        protected void InitArray(int propertyId, int lengthPropertyId, int length = ArrayLength)
         {
             if (length <= 0)
             {
@@ -831,7 +834,7 @@ namespace Dodkin.Interop
             }
         }
 
-        protected void InitString(int propertyId, int lengthPropertyId, int length = 124)
+        protected void InitString(int propertyId, int lengthPropertyId, int length = StringLength)
         {
             if (length <= 0)
             {
@@ -911,10 +914,10 @@ namespace Dodkin.Interop
                     switch (GetVarType(propertyFlag))
                     {
                         case VarType.String:
-                            InitString(propertyId, GetSizePropertyId(propertyId), initEmpty ? 0 : 124);
+                            InitString(propertyId, GetSizePropertyId(propertyId), initEmpty ? 0 : StringLength);
                             break;
                         case VarType.ByteArray:
-                            InitArray(propertyId, GetSizePropertyId(propertyId), initEmpty ? 0 : 256);
+                            InitArray(propertyId, GetSizePropertyId(propertyId), initEmpty ? 0 : ArrayLength);
                             break;
                         case VarType.Byte:
                             SetValue(propertyId, (byte)0);

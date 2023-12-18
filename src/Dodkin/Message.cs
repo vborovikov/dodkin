@@ -171,6 +171,8 @@
     [JsonConverter(typeof(MessageJsonConverter))]
     public readonly struct Message : IDisposable
     {
+        public const int MaxLabelLength = 249;
+
         private sealed class MessageJsonConverter : JsonConverter<Message>
         {
             public override void Write(Utf8JsonWriter writer, Message value, JsonSerializerOptions options) =>

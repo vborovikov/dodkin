@@ -109,7 +109,7 @@
                         if (this.queueNameValid)
                             break;
 
-                        var formatNameBuilder = new StringBuilder(124);
+                        var formatNameBuilder = new StringBuilder(DirectFormatName.MaxLength);
                         var formatNameLength = formatNameBuilder.Capacity;
 
                         var hr = MQ.HandleToFormatName(handle, formatNameBuilder, ref formatNameLength);

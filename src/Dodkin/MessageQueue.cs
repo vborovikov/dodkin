@@ -96,7 +96,7 @@
         {
             ArgumentNullException.ThrowIfNull(queueName);
 
-            var formatNameBuilder = new StringBuilder(124);
+            var formatNameBuilder = new StringBuilder(DirectFormatName.MaxLength);
             var formatNameLength = formatNameBuilder.Capacity;
             var result = MQ.PathNameToFormatName(queueName.PathName, formatNameBuilder, ref formatNameLength);
             if (result == MQ.HR.ERROR_QUEUE_NOT_FOUND)
@@ -193,7 +193,7 @@
 
         private static MQ.HR CreateQueue(bool throwOnError, in QueueInfo queueInfo, out string formatName)
         {
-            var formatNameBuilder = new StringBuilder(124);
+            var formatNameBuilder = new StringBuilder(DirectFormatName.MaxLength);
             var formatNameLength = formatNameBuilder.Capacity;
 
             using var packedQueueProps = queueInfo.Properties.Pack();
@@ -216,7 +216,7 @@
 
         private static string PathToFormatName(string queuePath)
         {
-            var formatNameBuilder = new StringBuilder(124);
+            var formatNameBuilder = new StringBuilder(DirectFormatName.MaxLength);
             var formatNameLength = formatNameBuilder.Capacity;
 
             var result = MQ.PathNameToFormatName(queuePath, formatNameBuilder, ref formatNameLength);

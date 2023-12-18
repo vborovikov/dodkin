@@ -28,6 +28,9 @@
     public abstract class MessageQueueName : IEquatable<MessageQueueName>, IEquatable<string>,
         IParsable<MessageQueueName>, ISpanParsable<MessageQueueName>
     {
+        public const int MaxQueueNameLength = 124;
+        public const int MaxSubqueueNameLength = 32;
+
         private const string IllegalQueueNameChars = "=:\r\n+,\"";
         protected internal const string LocalComputer = ".";
         protected const string PrivateQueueMoniker = "private$";
@@ -225,6 +228,13 @@
 
     sealed class DirectFormatName : MessageQueueName
     {
+        public const int MaxComputerNameLength = 31;
+        public const int MaxLength = MaxComputerNameLength + // computer name
+                                     1 +                     // '\'
+                                     8 +                     // "private$"
+                                     1 +                     // '\'
+                                     MaxQueueNameLength;     // queue name
+
         private const string FormatMoniker = "DIRECT=";
 
         private readonly ComputerAddressProtocol protocol;
@@ -280,7 +290,7 @@
         public override MessageQueueName GetSubqueueName(string subqueueName)
         {
             ArgumentException.ThrowIfNullOrEmpty(subqueueName);
-            if (subqueueName.Length > 32)
+            if (subqueueName.Length > MaxSubqueueNameLength)
                 throw new ArgumentOutOfRangeException(nameof(subqueueName));
             if (this.protocol != ComputerAddressProtocol.OS || this.IsSubqueue)
                 throw new InvalidOperationException();
