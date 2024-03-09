@@ -64,4 +64,16 @@ public class QueueRequestHandlerTests
     {
         await Assert.ThrowsExceptionAsync<TimeoutException>(() => requestDispatcher.RunAsync(new TestUnknownQuery()));
     }
+
+    [TestMethod]
+    public async Task ProcessAsync_Shutdown_ProcessingStops()
+    {
+        var requestHandler = new TestQueueRequestHandler(handlerME, loggerFactory.CreateLogger<TestQueueRequestHandler>());
+        var cancelSource = new CancellationTokenSource();
+        var processingTask = requestHandler.ProcessAsync(cancelSource.Token);
+        await Task.Delay(100);
+        cancelSource.Cancel();
+        await Task.Delay(100);
+        Assert.IsTrue(processingTask.IsCompleted);
+    }
 }
