@@ -6,17 +6,49 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Relay.RequestModel;
 
+/// <summary>
+/// Represents a queue operator that dispatches requests to the appropriate handlers.
+/// </summary>
 public interface IQueueRequestDispatcher : IRequestDispatcher
 {
+    /// <summary>
+    /// Executes a command asynchronously with a timeout.
+    /// </summary>
+    /// <typeparam name="TCommand">The type of the command.</typeparam>
+    /// <param name="command">The command to execute.</param>
+    /// <param name="timeout">The timeout.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     Task ExecuteAsync<TCommand>(TCommand command, TimeSpan timeout) where TCommand : ICommand;
+
+    /// <summary>
+    /// Executes a query asynchronously and returns the result.
+    /// </summary>
+    /// <typeparam name="TResult">The type of the result returned by the query.</typeparam>
+    /// <param name="query">The query to execute.</param>
+    /// <param name="timeout">The timeout.</param>
+    /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation.</returns>
     Task<TResult> RunAsync<TResult>(IQuery<TResult> query, TimeSpan timeout);
 }
 
+/// <summary>
+/// Represents a queue operator that schedules commands to the appropriate handlers.
+/// </summary>
 public interface IQueueRequestScheduler : IQueueRequestDispatcher
 {
+    /// <summary>
+    /// Schedules a command to be executed at a specific time.
+    /// </summary>
+    /// <typeparam name="TCommand">The type of the command.</typeparam>
+    /// <param name="command">The command to execute.</param>
+    /// <param name="at">The time at which the command should be executed.</param>
+    /// <param name="timeout">The timeout.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     Task ExecuteAsync<TCommand>(TCommand command, DateTimeOffset at, TimeSpan? timeout = default) where TCommand : ICommand;
 }
 
+/// <summary>
+/// Represents a queue operator that dispatches or schedules requests to the appropriate handlers.
+/// </summary>
 public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQueueRequestScheduler
 {
     private static readonly TimeSpan DefaultScheduleTimeout = TimeSpan.FromSeconds(5);
@@ -26,10 +58,23 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
     private readonly IMessageQueueReader responseQ;
     private readonly IMessageQueueReader adminQ;
 
+    /// <summary>
+    /// Creates a new instance of the <see cref="QueueRequestDispatcher"/> class.
+    /// </summary>
+    /// <param name="requestQueueName">The name of the queue used to dispatch requests.</param>
+    /// <param name="endpoint">The endpoint describing the queues used by the dispatcher.</param>
+    /// <param name="logger">The logger.</param>
     public QueueRequestDispatcher(MessageQueueName requestQueueName, MessageEndpoint endpoint, ILogger logger)
         : this(requestQueueName, endpoint, MessageQueueFactory.Instance, logger)
     { }
 
+    /// <summary>
+    /// Creates a new instance of the <see cref="QueueRequestDispatcher"/> class.
+    /// </summary>
+    /// <param name="requestQueueName">The name of the queue used to dispatch requests.</param>
+    /// <param name="endpoint">The endpoint describing the queues used by the dispatcher.</param>
+    /// <param name="messageQueueFactory">The message queue factory.</param>
+    /// <param name="logger">The logger.</param>
     public QueueRequestDispatcher(MessageQueueName requestQueueName, MessageEndpoint endpoint,
         IMessageQueueFactory messageQueueFactory, ILogger logger) : base(endpoint, logger)
     {
@@ -39,6 +84,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
         this.adminQ = messageQueueFactory.CreateReader(this.Endpoint.AdministrationQueue);
     }
 
+    /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
         this.requestQ.Dispose();
@@ -46,18 +92,23 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
         this.adminQ.Dispose();
     }
 
+    /// <inheritdoc />
     public Task ExecuteAsync<TCommand>(TCommand command) where TCommand : ICommand =>
         ExecuteWaitAsync(command, null);
 
+    /// <inheritdoc />
     public Task ExecuteAsync<TCommand>(TCommand command, TimeSpan timeout) where TCommand : ICommand =>
         ExecuteWaitAsync(command, timeout);
 
+    /// <inheritdoc />
     public Task<TResult> RunAsync<TResult>(IQuery<TResult> query) =>
         RunWaitAsync(query, null);
 
+    /// <inheritdoc />
     public Task<TResult> RunAsync<TResult>(IQuery<TResult> query, TimeSpan timeout) =>
         RunWaitAsync(query, timeout);
 
+    /// <inheritdoc />
     public async Task ExecuteAsync<TCommand>(TCommand command, DateTimeOffset at, TimeSpan? timeout = default) where TCommand : ICommand
     {
         if (at <= DateTimeOffset.Now)

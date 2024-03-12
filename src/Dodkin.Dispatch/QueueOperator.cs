@@ -13,6 +13,9 @@ using Relay.RequestModel;
 /// </summary>
 public abstract class QueueOperator : IDisposable
 {
+    /// <summary>
+    /// The default message properties that are recognized by the operator.
+    /// </summary>
     protected const MessageProperty MessageProperties =
         MessageProperty.MessageId | MessageProperty.CorrelationId | MessageProperty.RespQueue |
         MessageProperty.Label | MessageProperty.Body | MessageProperty.Extension | MessageProperty.LookupId;
@@ -21,6 +24,11 @@ public abstract class QueueOperator : IDisposable
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
     private static Assembly? interactionAssembly;
 
+    /// <summary>
+    /// Creates new instance of <see cref="QueueOperator"/>
+    /// </summary>
+    /// <param name="endpoint">The endpoint describing the queues used by the queue operator.</param>
+    /// <param name="logger">The logger.</param>
     protected QueueOperator(MessageEndpoint endpoint, ILogger logger)
     {
         this.Endpoint = endpoint;
@@ -50,6 +58,10 @@ public abstract class QueueOperator : IDisposable
         return operatorName;
     }
 
+    /// <summary>
+    /// References the assembly that contains the request types.
+    /// </summary>
+    /// <param name="assembly"></param>
     public static void ReferenceAssembly(Assembly assembly)
     {
         interactionAssembly = assembly;
@@ -57,17 +69,38 @@ public abstract class QueueOperator : IDisposable
 
     internal static Assembly InteractionAssembly => interactionAssembly ??= Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly();
 
+    /// <summary>
+    /// The endpoint describing the queues used by the queue operator.
+    /// </summary>
     protected MessageEndpoint Endpoint { get; }
 
+    /// <summary>
+    /// Gets or sets the queue operating timeout.
+    /// </summary>
     protected TimeSpan Timeout { get; init; }
 
+    /// <summary>
+    /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+    /// </summary>
     public void Dispose()
     {
         Dispose(true);
+        GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
+    /// </summary>
+    /// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
     protected abstract void Dispose(bool disposing);
 
+    /// <summary>
+    /// Creates a new <see cref="Message"/> instance.
+    /// </summary>
+    /// <param name="body">The body of the message.</param>
+    /// <param name="corellationId">The correlation message ID.</param>
+    /// <param name="timeout">The message timeout.</param>
+    /// <returns>The created message.</returns>
     protected Message CreateMessage(object body, in MessageId corellationId = default, TimeSpan? timeout = null)
     {
         var bodyType = body.GetType();
@@ -89,19 +122,29 @@ public abstract class QueueOperator : IDisposable
         return message;
     }
 
+    /// <summary>
+    /// Reads the body of a <see cref="Message"/> instance.
+    /// </summary>
+    /// <typeparam name="T">The type of the message body.</typeparam>
+    /// <param name="message">The message.</param>
+    /// <returns>The message body.</returns>
+    /// <exception cref="InvalidOperationException"></exception>
     protected static T Read<T>(in Message message)
     {
         if (message.IsEmpty)
             throw new InvalidOperationException();
-        var bodyType = FindBodyType(message);
-        if (bodyType is null)
-            throw new InvalidOperationException();
-        var body = JsonSerializer.Deserialize(message.Body, bodyType);
-        if (body is null)
-            throw new InvalidOperationException();
+        var bodyType = FindBodyType(message) ?? throw new InvalidOperationException();
+        var body = JsonSerializer.Deserialize(message.Body, bodyType) ?? throw new InvalidOperationException();
         return (T)body;
     }
 
+    /// <summary>
+    /// Tries to read the body of a <see cref="Message"/> instance.
+    /// </summary>
+    /// <typeparam name="T">The type of the message body.</typeparam>
+    /// <param name="message">The message.</param>
+    /// <param name="request">The message body.</param>
+    /// <returns><c>true</c> if the message body could be read; otherwise, <c>false</c>.</returns>
     protected static bool TryRead<T>(in Message message, [MaybeNullWhen(false)] out T request)
         where T : notnull, IRequest
     {
@@ -123,6 +166,11 @@ public abstract class QueueOperator : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// Determines the type of the message body.
+    /// </summary>
+    /// <param name="message">The message.</param>
+    /// <returns>The type of the message body or <c>null</c> if the body type could not be determined.</returns>
     protected static Type? FindBodyType(in Message message)
     {
         var bodyTypeBuffer = message.Extension;
