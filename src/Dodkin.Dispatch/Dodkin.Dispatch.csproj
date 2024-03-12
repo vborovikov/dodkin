@@ -17,6 +17,8 @@
     <RepositoryUrl>https://github.com/vborovikov/dodkin.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>msmq;messaging;queue;cqrs</PackageTags>
+    <PackageReleaseNotes></PackageReleaseNotes>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>

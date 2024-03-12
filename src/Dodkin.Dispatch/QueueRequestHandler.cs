@@ -9,11 +9,17 @@ using Microsoft.Extensions.Logging;
 using Relay.RequestModel;
 using Relay.RequestModel.Default;
 
+/// <summary>
+/// Represents a queue operator that dispatches requests to the appropriate handlers.
+/// </summary>
 public class QueueRequestHandler : QueueOperator, IRequestDispatcher
 {
     private const int ResponseCacheCapacity = 8;
     private const string CommandSubqueueName = "commands";
     private const string QuerySubqueueName = "queries";
+    /// <summary>
+    /// The name of the subqueue used for deferring requests specific to the derived type.
+    /// </summary>
     protected const string RequestSubqueueName = "requests";
 
     private sealed class InternalRequestDispatcher : DefaultRequestDispatcherBase
@@ -33,14 +39,33 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     private readonly IRequestDispatcher dispatcher;
     private readonly LRUCache<MessageQueueName, IMessageQueueWriter> responseCache;
 
+    /// <summary>
+    /// Creates new instance of <see cref="QueueRequestHandler"/>.
+    /// </summary>
+    /// <param name="requestDispatcher">The dispatcher used to dispatch requests to the appropriate handlers.</param>
+    /// <param name="endpoint">The endpoint describing the queues used by the handler.</param>
+    /// <param name="messageQueueFactory">The message queue factory.</param>
+    /// <param name="logger">The logger.</param>
     public QueueRequestHandler(IRequestDispatcher requestDispatcher, MessageEndpoint endpoint, IMessageQueueFactory messageQueueFactory, ILogger logger)
         : this(endpoint, messageQueueFactory, logger, requestDispatcher) { }
 
+    /// <summary>
+    /// Creates new instance of <see cref="QueueRequestHandler"/>
+    /// </summary>
+    /// <param name="endpoint">The endpoint describing the queues used by the handler.</param>
+    /// <param name="logger">The logger.</param>
     protected QueueRequestHandler(MessageEndpoint endpoint, ILogger logger)
         : this(endpoint, MessageQueueFactory.Instance, logger, null)
     {
     }
 
+    /// <summary>
+    /// Creates new instance of <see cref="QueueRequestHandler"/>
+    /// </summary>
+    /// <param name="endpoint">The endpoint describing the queues used by the handler.</param>
+    /// <param name="messageQueueFactory">The message queue factory.</param>
+    /// <param name="logger">The logger.</param>
+    /// <param name="requestDispatcher">The dispatcher used to dispatch requests to the appropriate handlers.</param>
     protected QueueRequestHandler(MessageEndpoint endpoint, IMessageQueueFactory messageQueueFactory, ILogger logger, IRequestDispatcher? requestDispatcher = null)
         : base(endpoint, logger)
     {
@@ -50,18 +75,35 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         this.responseCache = new(ResponseCacheCapacity);
     }
 
+    /// <summary>
+    /// The message properties to peek on the application queue.
+    /// </summary>
     protected MessageProperty PeekProperties { get; init; } = MessageProperty.None;
 
+    /// <summary>
+    /// The <see cref="ParallelOptions"/> used when processing requests.
+    /// </summary>
     public ParallelOptions ParallelOptions { get; init; } = new();
 
+    /// <inheritdoc/>
     protected override void Dispose(bool disposing)
     {
         this.responseCache.Dispose();
     }
 
+    /// <summary>
+    /// Runs the specified query and returns the result.
+    /// </summary>
+    /// <param name="query">The query.</param>
+    /// <returns>The result of the query.</returns>
     protected Task<object> RunQueryAsync(IQuery query) =>
         this.dispatcher.RunGenericAsync(query);
 
+    /// <summary>
+    /// Executes the specified command.
+    /// </summary>
+    /// <param name="command">The command.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     protected Task ExecuteCommandAsync(ICommand command) =>
         this.dispatcher.ExecuteGenericAsync(command);
 
@@ -71,6 +113,11 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     Task IRequestDispatcher.ExecuteAsync<TCommand>(TCommand command) =>
         this.dispatcher.ExecuteAsync(command);
 
+    /// <summary>
+    /// Starts processing request messages.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public async Task ProcessAsync(CancellationToken cancellationToken)
     {
         try
@@ -85,6 +132,11 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         }
     }
 
+    /// <summary>
+    /// Gets the request processing tasks operating on the application queue.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The collection of processing tasks.</returns>
     protected virtual ICollection<Task> GetProcessingTasks(CancellationToken cancellationToken)
     {
         return new List<Task>
@@ -114,8 +166,15 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                 {
                     if (CanDispatchRequest(msg))
                     {
-                        appQ.Move(msg.LookupId, reqSQ, tx);
-                        this.log.LogInformation(EventIds.RequestDispatched, "Dispatched request [{MessageLookupId}]", msg.LookupId);
+                        if (TryDispatchRequest(msg))
+                        {
+                            this.log.LogInformation(EventIds.RequestDispatched, "Dispatched request [{MessageLookupId}]", msg.LookupId);
+                        }
+                        else
+                        {
+                            appQ.Move(msg.LookupId, reqSQ, tx);
+                            this.log.LogInformation(EventIds.RequestDeferred, "Deferred request [{MessageLookupId}]", msg.LookupId);
+                        }
                     }
                     else
                     {
@@ -153,7 +212,19 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         }
     }
 
+    /// <summary>
+    /// Determines whether the message should be dispatched as a request.
+    /// </summary>
+    /// <param name="message">The message.</param>
+    /// <returns><see langword="true"/> if the message should be dispatched as a request; otherwise, <see langword="false"/>.</returns>
     protected virtual bool CanDispatchRequest(in Message message) => false;
+
+    /// <summary>
+    /// Tries to dispatch the message as a request.
+    /// </summary>
+    /// <param name="message">The message.</param>
+    /// <returns><see langword="true"/> if the message was dispatched as a request; otherwise, <see langword="false"/>.</returns>
+    protected virtual bool TryDispatchRequest(in Message message) => false;
 
     private async Task ProcessCommandsAsync(CancellationToken cancellationToken)
     {
@@ -243,11 +314,22 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         }
     }
 
+    /// <summary>
+    /// Gets or creates the response queue for the specified message queue name.
+    /// </summary>
+    /// <param name="queueName">The message queue name.</param>
+    /// <returns>The response queue writer.</returns>
     protected IMessageQueueWriter GetResponseQueue(MessageQueueName queueName)
     {
         return this.responseCache.GetOrAdd(queueName, (queueName, mq) => mq.CreateWriter(queueName), this.mq);
     }
 
+    /// <summary>
+    /// Creates a poison message from the specified message and exception.
+    /// </summary>
+    /// <param name="message">The message.</param>
+    /// <param name="exception">The exception.</param>
+    /// <returns>The poison message.</returns>
     protected static Message WrapPoisonMessage(in Message message, Exception exception)
     {
         var errorMessage = exception.Message;
@@ -263,6 +345,12 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         };
     }
 
+    /// <summary>
+    /// Creates the parallel options used for parallel processing of the specified request type.
+    /// </summary>
+    /// <typeparam name="TRequest">The type of the request.</typeparam>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The parallel options.</returns>
     protected virtual ParallelOptions CreateParallelOptions<TRequest>(CancellationToken cancellationToken)
         where TRequest : IRequest
     {

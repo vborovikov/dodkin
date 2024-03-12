@@ -33,6 +33,7 @@ static class EventIds
     public static readonly EventId QueryDispatched = new(33, "QueryDispatched");
     public static readonly EventId MessageFailed = new(34, "MessageFailed");
     public static readonly EventId RequestDispatched = new(35, "RequestDispatched");
+    public static readonly EventId RequestDeferred = new(36, "RequestDeferred");
 
     public static readonly EventId CommandExecuted = new(40, "CommandExecuted");
     public static readonly EventId CommandNotImplemented = new(41, "CommandNotImplemented");

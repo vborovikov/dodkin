@@ -8,6 +8,9 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Relay.RequestModel;
 
+/// <summary>
+/// Represents a queue operator that recognizes request messages.
+/// </summary>
 public abstract class QueueOperator : IDisposable
 {
     protected const MessageProperty MessageProperties =
