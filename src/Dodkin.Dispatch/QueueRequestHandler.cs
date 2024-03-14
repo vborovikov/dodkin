@@ -44,6 +44,15 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     /// </summary>
     /// <param name="requestDispatcher">The dispatcher used to dispatch requests to the appropriate handlers.</param>
     /// <param name="endpoint">The endpoint describing the queues used by the handler.</param>
+    /// <param name="logger">The logger.</param>
+    public QueueRequestHandler(IRequestDispatcher requestDispatcher, MessageEndpoint endpoint, ILogger logger)
+        : this(endpoint, MessageQueueFactory.Instance, logger, requestDispatcher) { }
+
+    /// <summary>
+    /// Creates new instance of <see cref="QueueRequestHandler"/>.
+    /// </summary>
+    /// <param name="requestDispatcher">The dispatcher used to dispatch requests to the appropriate handlers.</param>
+    /// <param name="endpoint">The endpoint describing the queues used by the handler.</param>
     /// <param name="messageQueueFactory">The message queue factory.</param>
     /// <param name="logger">The logger.</param>
     public QueueRequestHandler(IRequestDispatcher requestDispatcher, MessageEndpoint endpoint, IMessageQueueFactory messageQueueFactory, ILogger logger)
