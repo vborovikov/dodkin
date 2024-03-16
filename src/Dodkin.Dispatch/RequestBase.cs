@@ -26,3 +26,36 @@ public abstract record Command : RequestBase, ICommand { }
 /// </summary>
 /// <typeparam name="T">The type of the query result.</typeparam>
 public abstract record Query<T> : RequestBase, IQuery<T> { }
+
+/// <summary>
+/// Represents a service status.
+/// </summary>
+public enum ServiceStatus
+{
+    /// <summary>
+    /// The service is unreachable.
+    /// </summary>
+    Unreachable,
+    /// <summary>
+    /// The service is operational.
+    /// </summary>
+    Operational,
+    /// <summary>
+    /// The service is semi-operational, i.e. it has some non-critical components that are not operational.
+    /// </summary>
+    SemiOperational,
+    /// <summary>
+    /// The service is non-operational, i.e. it has critical components that are not operational.
+    /// </summary>
+    NonOperational,
+    /// <summary>
+    /// The service is busy working.
+    /// </summary>
+    Busy,
+}
+
+/// <summary>
+/// Represents a service status query.
+/// </summary>
+public record ServiceStatusQuery : Query<ServiceStatus> { }
+
