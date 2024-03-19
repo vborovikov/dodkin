@@ -154,7 +154,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
         }
         catch (TimeoutException x)
         {
-            this.log.LogWarning(EventIds.CommandTimedOut, x, "Timed out waiting for command <{MessageId}>", message.Id);
+            this.log.LogInformation(EventIds.CommandTimedOut, x, "Timed out waiting for command <{MessageId}>", message.Id);
             throw;
         }
         catch (Exception x)
@@ -188,7 +188,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
         }
         catch (TimeoutException x)
         {
-            this.log.LogWarning(EventIds.QueryTimedOut, x, "Timed out waiting for query <{MessageId}>", message.Id);
+            this.log.LogInformation(EventIds.QueryTimedOut, x, "Timed out waiting for query <{MessageId}>", message.Id);
             throw;
         }
         catch (Exception x)
