@@ -61,7 +61,7 @@ static class Program
 
             // db
             services.AddSingleton(_ => SqlClientFactory.Instance.CreateDataSource(
-                hostContext.Configuration.GetConnectionString("Service")!));
+                hostContext.Configuration.GetConnectionString("DefaultConnection")!));
             services.AddSingleton<IMessageStore, MessageStore>();
             // mq
             services.AddSingleton(MessageQueueFactory.Instance);
