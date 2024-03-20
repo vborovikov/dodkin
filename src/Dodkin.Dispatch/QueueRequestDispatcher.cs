@@ -157,7 +157,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
             this.log.LogInformation(EventIds.CommandTimedOut, x, "Timed out waiting for command <{MessageId}>", message.Id);
             throw;
         }
-        catch (Exception x)
+        catch (Exception x) when (x is not OperationCanceledException)
         {
             this.log.LogError(EventIds.CommandFailed, x, "Error executing command <{MessageId}>", message.Id);
             throw;
@@ -191,7 +191,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
             this.log.LogInformation(EventIds.QueryTimedOut, x, "Timed out waiting for query <{MessageId}>", message.Id);
             throw;
         }
-        catch (Exception x)
+        catch (Exception x) when (x is not OperationCanceledException)
         {
             this.log.LogError(EventIds.QueryFailed, x, "Error executing query <{MessageId}>", message.Id);
             throw;
