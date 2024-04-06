@@ -60,8 +60,9 @@ static class Program
             });
 
             // db
-            services.AddSingleton(_ => SqlClientFactory.Instance.CreateDataSource(
-                hostContext.Configuration.GetConnectionString("DefaultConnection")!));
+            var connectionString = hostContext.Configuration.GetConnectionString("DefaultConnection") ??
+                throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+            services.AddSingleton(_ => SqlClientFactory.Instance.CreateDataSource(connectionString));
             services.AddSingleton<IMessageStore, MessageStore>();
             // mq
             services.AddSingleton(MessageQueueFactory.Instance);
