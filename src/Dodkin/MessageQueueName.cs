@@ -45,7 +45,7 @@
             get
             {
                 var queueName = this.QueueName;
-                var sepPos = queueName.LastIndexOf(";");
+                var sepPos = queueName.LastIndexOf(';');
                 return sepPos > 0 && sepPos < (queueName.Length - 1);
             }
         }
