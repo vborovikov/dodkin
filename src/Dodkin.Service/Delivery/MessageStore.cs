@@ -5,6 +5,7 @@ using System.Data.Common;
 using System.Threading.Tasks;
 using Dapper;
 using Dodkin;
+using Microsoft.Extensions.Options;
 
 interface IMessageStore
 {
@@ -17,11 +18,13 @@ interface IMessageStore
 sealed class MessageStore : IMessageStore
 {
     private readonly DbDataSource db;
+    private readonly string tableName;
     private readonly ILogger<MessageStore> log;
 
-    public MessageStore(DbDataSource db, ILogger<MessageStore> log)
+    public MessageStore(DbDataSource db, IOptions<ServiceOptions> options, ILogger<MessageStore> log)
     {
         this.db = db;
+        this.tableName = options.Value.TableName;
         this.log = log;
     }
 
@@ -36,10 +39,17 @@ sealed class MessageStore : IMessageStore
         try
         {
             await cnn.ExecuteAsync(
-                """
-                insert into job.Delivery (MessageId, Message, Destination, DueTime)
+                $"""
+                insert into {this.tableName} (MessageId, Message, Destination, DueTime)
                 values (@MessageId, @Message, @Destination, @DueTime);
-                """, message, tx);
+                """,
+                new
+                {
+                    message.MessageId,
+                    message.Message,
+                    message.Destination,
+                    message.DueTime,
+                }, tx);
 
             await tx.CommitAsync(cancellationToken);
         }
@@ -62,8 +72,8 @@ sealed class MessageStore : IMessageStore
         try
         {
             await cnn.ExecuteAsync(
-                """
-                delete from job.Delivery
+                $"""
+                delete from {this.tableName}
                 where MessageId = @MessageId;
                 """, new { MessageId = messageId }, tx);
             await tx.CommitAsync(cancellationToken);
@@ -81,9 +91,9 @@ sealed class MessageStore : IMessageStore
     {
         await using var cnn = await this.db.OpenConnectionAsync(cancellationToken);
         return await cnn.QueryFirstOrDefaultAsync<MessageRecord>(
-            """
+            $"""
             select top 1 m.MessageId, m.Message, m.Destination, m.DueTime, m.RetryCount
-            from job.Delivery m
+            from {this.tableName} m
             order by m.DueTime; 
             """);
     }
@@ -96,8 +106,8 @@ sealed class MessageStore : IMessageStore
         try
         {
             await cnn.ExecuteAsync(
-                """
-                update job.Delivery set RetryCount = RetryCount + 1
+                $"""
+                update {this.tableName} set RetryCount = RetryCount + 1
                 where MessageId = @MessageId;
                 """, new { MessageId = messageId }, tx);
             await tx.CommitAsync(cancellationToken);

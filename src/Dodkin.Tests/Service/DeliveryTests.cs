@@ -1,5 +1,6 @@
 ﻿namespace Dodkin.Tests.Service;
 
+using System.Data.Common;
 using System.Text.Json;
 using Dodkin.Service;
 using Dodkin.Service.Data;
@@ -24,6 +25,7 @@ public class DeliveryTests
     private static readonly MessageQueueName testAppQN = MessageQueueName.Parse(@".\private$\dodkin-service-test");
     private static readonly MessageQueueName testAdminQN = MessageQueueName.Parse(@".\private$\dodkin-service-test-admin");
     private static ILoggerFactory logger;
+    private static DbDataSource dataSource;
     private static RequestHandler handler;
     private static Messenger messenger;
     private static Worker worker;
@@ -43,10 +45,12 @@ public class DeliveryTests
             builder.AddConsole();
             builder.AddDebug();
         });
-        handler = new RequestHandler();
+        dataSource = SqlClientFactory.Instance.CreateDataSource(@"Data Source=(LocalDB)\SqlLocalDB15;Initial Catalog=Dodkin;Integrated Security=SSPI;");
+        handler = new RequestHandler(dataSource, logger.CreateLogger<RequestHandler>());
         messenger = new Messenger(new WorkerOptions(), MessageQueueFactory.Instance,
             new MessageStore(
                 SqlClientFactory.Instance.CreateDataSource(@"Data Source=(LocalDB)\SqlLocalDB15;Initial Catalog=Dodkin;Integrated Security=SSPI;"),
+                Options.Create(new ServiceOptions()),
                 logger.CreateLogger<MessageStore>()),
             handler, logger.CreateLogger<Messenger>());
         worker = new Worker(messenger, logger.CreateLogger<Worker>());
