@@ -60,8 +60,12 @@ static class Program
             });
 
             // db
-            var connectionString = hostContext.Configuration.GetConnectionString("DefaultConnection") ??
-                throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+            var connectionString = hostContext.Configuration.GetConnectionString("DefaultConnection");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException("Connection string 'DefaultConnection' not found or empty.");
+            }
+
             services.AddSingleton(_ => SqlClientFactory.Instance.CreateDataSource(connectionString));
             services.AddSingleton<IMessageStore, MessageStore>();
             // mq
