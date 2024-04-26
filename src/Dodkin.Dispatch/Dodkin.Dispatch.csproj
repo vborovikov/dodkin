@@ -32,7 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dodkin" Version="0.5.3" />
+    <PackageReference Include="Dodkin" Version="0.6.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
     <PackageReference Include="RelayTk" Version="2.4.2" />
   </ItemGroup>
