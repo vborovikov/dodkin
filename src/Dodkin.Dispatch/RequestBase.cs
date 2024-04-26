@@ -59,3 +59,25 @@ public enum ServiceStatus
 /// </summary>
 public record ServiceStatusQuery : Query<ServiceStatus> { }
 
+/// <summary>
+/// Extension methods for <see cref="IRequestDispatcher"/>.
+/// </summary>
+public static class RequestDispatcherExtensions
+{
+    /// <summary>
+    /// Gets the service status.
+    /// </summary>
+    /// <param name="requestDispatcher">The request dispatcher.</param>
+    /// <returns>A <see cref="Task{TResult}"/> representing the asynchronous operation.</returns>
+    public static async Task<ServiceStatus> GetStatusAsync(this IRequestDispatcher requestDispatcher)
+    {
+        try
+        {
+            return await requestDispatcher.RunAsync(new ServiceStatusQuery());
+        }
+        catch (TimeoutException)
+        {
+            return ServiceStatus.Unreachable;
+        }
+    }
+}
