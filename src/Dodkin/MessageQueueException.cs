@@ -16,8 +16,6 @@ public class MessageQueueException : Exception
         this.HResult = (int)errorCode;
     }
 
-    protected MessageQueueException(SerializationInfo info, StreamingContext context) : base(info, context) { }
-
     protected MessageQueueException(string? message, Exception? innerException) : base(message, innerException) { }
 
     internal static void ThrowIfNotOK(MQ.HR hresult)
