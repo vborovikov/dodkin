@@ -67,7 +67,7 @@ sealed class Messenger : QueueRequestHandler
                         await this.db.AddAsync(messageRecord, cancellationToken);
 
                         this.log.LogInformation(EventIds.Receiving, "Stored request <{MessageId}> (to be sent at {DueTime})",
-                            message.Id, messageRecord.DueTime);
+                            message.Id, messageRecord.DueTime.ToLocalTime());
 
                         // signal for delivery
                         this.msgEvent.Set();
@@ -105,7 +105,8 @@ sealed class Messenger : QueueRequestHandler
             var waitPeriod = dueTime - DateTimeOffset.Now;
             if (waitPeriod > TimeSpan.Zero)
             {
-                this.log.LogInformation(EventIds.Sending, "Waiting for {WaitPeriod} before sending messages", waitPeriod.ToText());
+                this.log.LogInformation(EventIds.Sending, "Waiting for {WaitPeriod} before sending messages ({dueTime})",
+                    waitPeriod.ToText(), dueTime.ToLocalTime());
 
                 // wait for it or a new message signal
                 await Task.WhenAny(Task.Delay(waitPeriod, stoppingToken), this.msgEvent.WaitAsync());
