@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Dapper;
 using Dodkin;
 using Microsoft.Extensions.Options;
+using Spryer;
 
 interface IMessageStore
 {
@@ -40,8 +41,8 @@ sealed class MessageStore : IMessageStore
         {
             await cnn.ExecuteAsync(
                 $"""
-                insert into {this.tableName} (MessageId, Message, Destination, DueTime)
-                values (@MessageId, @Message, @Destination, @DueTime);
+                insert into {this.tableName} (MessageId, Message, Destination, DueTime, MessageLabel)
+                values (@MessageId, @Message, @Destination, @DueTime, @MessageLabel);
                 """,
                 new
                 {
@@ -49,6 +50,7 @@ sealed class MessageStore : IMessageStore
                     message.Message,
                     message.Destination,
                     message.DueTime,
+                    MessageLabel = message.Message.Label.AsNVarChar(Message.MaxLabelLength),
                 }, tx);
 
             await tx.CommitAsync(cancellationToken);

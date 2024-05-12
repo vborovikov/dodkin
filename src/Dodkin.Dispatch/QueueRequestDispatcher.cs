@@ -1,6 +1,8 @@
 namespace Dodkin.Dispatch;
 
 using System;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -121,6 +123,19 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
         message.TimeToBeReceived = timeout ?? DefaultScheduleTimeout;
         message.Acknowledgment = MessageAcknowledgment.FullReceive;
         message.AppSpecific = (uint)at.ToUnixTimeSeconds();
+
+        if (message.Body.Length <= 110)
+        {
+            // if the message body is small then add it to the label
+
+            var label = string.Concat(message.Label, Encoding.UTF8.GetString(message.Body));
+            if (label.Length > Message.MaxLabelLength)
+            {
+                label = label[..Message.MaxLabelLength];
+            }
+
+            message.Label = label;
+        }
 
         await ExecuteWaitAsync(message, MessageClass.AckReceive, timeout ?? DefaultScheduleTimeout, command.CancellationToken);
     }

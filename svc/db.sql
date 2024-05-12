@@ -27,6 +27,7 @@ create table job.Delivery
 (
     MessageId varchar(50) not null primary key,
     Message varbinary(8000) not null,
+    MessageLabel nvarchar(249) null,
     Destination varchar(250) not null,
     DueTime datetimeoffset not null index IX_Delivery_DueTime,
     RetryCount smallint not null default 0

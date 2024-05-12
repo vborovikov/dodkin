@@ -105,7 +105,7 @@ public abstract class QueueOperator : IDisposable
     {
         var bodyType = body.GetType();
         var message = new Message(JsonSerializer.SerializeToUtf8Bytes(body),
-            JsonSerializer.SerializeToUtf8Bytes<string>(bodyType.AssemblyQualifiedName!))
+            JsonSerializer.SerializeToUtf8Bytes(bodyType.AssemblyQualifiedName))
         {
             CorrelationId = corellationId,
             Label = bodyType.Name,
