@@ -62,7 +62,7 @@ public abstract class QueueOperator : IDisposable
     /// References the assembly that contains the recognized request types.
     /// </summary>
     /// <param name="assembly"></param>
-    public void ReferenceAssembly(Assembly assembly)
+    public void RecognizeTypesFrom(Assembly assembly)
     {
         if (Interlocked.CompareExchange(ref this.interactionAssembly, assembly, null) == this.interactionAssembly &&
             this.interactionAssembly != assembly)

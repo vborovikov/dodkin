@@ -21,8 +21,8 @@ public class QueueOperatorTests
     public void ReferenceAssembly_ReferencedSameTwice_NoException()
     {
         var d = new QueueRequestDispatcher(MessageQueueName.FromName("test-queue"), endpoint, NullLogger.Instance);
-        d.ReferenceAssembly(Assembly.GetExecutingAssembly());
-        d.ReferenceAssembly(Assembly.GetExecutingAssembly());
+        d.RecognizeTypesFrom(Assembly.GetExecutingAssembly());
+        d.RecognizeTypesFrom(Assembly.GetExecutingAssembly());
 
         Assert.IsTrue(true);
     }
@@ -31,7 +31,7 @@ public class QueueOperatorTests
     public void ReferenceAssembly_ReferencedDifferent_Exception()
     {
         var d = new QueueRequestDispatcher(MessageQueueName.FromName("test-queue"), endpoint, NullLogger.Instance);
-        d.ReferenceAssembly(Assembly.GetExecutingAssembly());
-        Assert.ThrowsException<InvalidOperationException>(() => d.ReferenceAssembly(typeof(ServiceStatusQuery).Assembly));
+        d.RecognizeTypesFrom(Assembly.GetExecutingAssembly());
+        Assert.ThrowsException<InvalidOperationException>(() => d.RecognizeTypesFrom(typeof(ServiceStatusQuery).Assembly));
     }
 }
