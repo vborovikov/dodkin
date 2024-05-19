@@ -20,9 +20,9 @@ public abstract class QueueOperator : IDisposable
         MessageProperty.MessageId | MessageProperty.CorrelationId | MessageProperty.RespQueue |
         MessageProperty.Label | MessageProperty.Body | MessageProperty.Extension | MessageProperty.LookupId;
 
-    private static readonly ConcurrentDictionary<string, Type> bodyTypeCache = new();
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
-    private static Assembly? interactionAssembly;
+    private readonly ConcurrentDictionary<string, Type> bodyTypeCache = new();
+    private Assembly? interactionAssembly;
 
     /// <summary>
     /// Creates new instance of <see cref="QueueOperator"/>
@@ -59,15 +59,22 @@ public abstract class QueueOperator : IDisposable
     }
 
     /// <summary>
-    /// References the assembly that contains the request types.
+    /// References the assembly that contains the recognized request types.
     /// </summary>
     /// <param name="assembly"></param>
-    public static void ReferenceAssembly(Assembly assembly)
+    public void ReferenceAssembly(Assembly assembly)
     {
-        interactionAssembly = assembly;
+        if (Interlocked.CompareExchange(ref this.interactionAssembly, assembly, null) == this.interactionAssembly &&
+            this.interactionAssembly != assembly)
+        {
+            throw new InvalidOperationException("Interaction assembly is already referenced.");
+        }
     }
 
-    internal static Assembly InteractionAssembly => interactionAssembly ??= Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly();
+    /// <summary>
+    /// Gets the assembly that contains the recognized request types.
+    /// </summary>
+    private Assembly InteractionAssembly => this.interactionAssembly ??= Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly();
 
     /// <summary>
     /// The endpoint describing the queues used by the queue operator.
@@ -129,7 +136,7 @@ public abstract class QueueOperator : IDisposable
     /// <param name="message">The message.</param>
     /// <returns>The message body.</returns>
     /// <exception cref="InvalidOperationException"></exception>
-    protected static T Read<T>(in Message message)
+    protected T Read<T>(in Message message)
     {
         if (message.IsEmpty)
             throw new InvalidOperationException("The received message is empty.");
@@ -138,7 +145,7 @@ public abstract class QueueOperator : IDisposable
             throw new InvalidOperationException("The message body type cannot be determined.");
         var body = JsonSerializer.Deserialize(message.Body, bodyType) ??
             throw new InvalidOperationException("The message body cannot be deserialized.");
-            
+
         return (T)body;
     }
 
@@ -149,7 +156,7 @@ public abstract class QueueOperator : IDisposable
     /// <param name="message">The message.</param>
     /// <param name="request">The message body.</param>
     /// <returns><c>true</c> if the message body could be read; otherwise, <c>false</c>.</returns>
-    protected static bool TryRead<T>(in Message message, [MaybeNullWhen(false)] out T request)
+    protected bool TryRead<T>(in Message message, [MaybeNullWhen(false)] out T request)
         where T : notnull, IRequest
     {
         if (!message.IsEmpty)
@@ -175,7 +182,7 @@ public abstract class QueueOperator : IDisposable
     /// </summary>
     /// <param name="message">The message.</param>
     /// <returns>The type of the message body or <c>null</c> if the body type could not be determined.</returns>
-    protected static Type? FindBodyType(in Message message)
+    protected Type? FindBodyType(in Message message)
     {
         var bodyTypeBuffer = message.Extension;
         if (bodyTypeBuffer.IsEmpty)
@@ -184,27 +191,27 @@ public abstract class QueueOperator : IDisposable
         var bodyTypeName = JsonSerializer.Deserialize<string>(bodyTypeBuffer);
         if (bodyTypeName is null)
             return null;
-        if (bodyTypeCache.TryGetValue(bodyTypeName, out var bodyType))
+        if (this.bodyTypeCache.TryGetValue(bodyTypeName, out var bodyType))
             return bodyType;
 
         bodyType = Type.GetType(bodyTypeName, throwOnError: false);
         if (bodyType is null && AssemblyQualifiedTypeName.TryParse(bodyTypeName, out var typeInfo))
         {
             bodyType =
-                InteractionAssembly.GetType(typeInfo.FullName, throwOnError: false) ??
+                this.InteractionAssembly.GetType(typeInfo.FullName, throwOnError: false) ??
                 Type.GetType(typeInfo.FullName, throwOnError: false) ??
                 FindBodyTypeByName(typeInfo.FullName);
         }
         if (bodyType is not null)
         {
-            bodyTypeCache.TryAdd(bodyTypeName, bodyType);
+            this.bodyTypeCache.TryAdd(bodyTypeName, bodyType);
             return bodyType;
         }
 
         return null;
     }
 
-    private static Type? FindBodyTypeByName(ReadOnlySpan<char> typeFullName)
+    private Type? FindBodyTypeByName(ReadOnlySpan<char> typeFullName)
     {
         var nameStart = typeFullName.LastIndexOf('.');
         if (nameStart <= 0)
@@ -212,7 +219,7 @@ public abstract class QueueOperator : IDisposable
 
         var requestType = typeof(IRequest);
         var typeName = typeFullName[(nameStart + 1)..];
-        foreach (var exportedType in InteractionAssembly.GetExportedTypes())
+        foreach (var exportedType in this.InteractionAssembly.GetExportedTypes())
         {
             if (requestType.IsAssignableFrom(exportedType) && typeName.Equals(exportedType.Name, StringComparison.OrdinalIgnoreCase))
                 return exportedType;
