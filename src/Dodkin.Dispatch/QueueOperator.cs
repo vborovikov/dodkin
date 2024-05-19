@@ -132,9 +132,13 @@ public abstract class QueueOperator : IDisposable
     protected static T Read<T>(in Message message)
     {
         if (message.IsEmpty)
-            throw new InvalidOperationException();
-        var bodyType = FindBodyType(message) ?? throw new InvalidOperationException();
-        var body = JsonSerializer.Deserialize(message.Body, bodyType) ?? throw new InvalidOperationException();
+            throw new InvalidOperationException("The received message is empty.");
+
+        var bodyType = FindBodyType(message) ??
+            throw new InvalidOperationException("The message body type cannot be determined.");
+        var body = JsonSerializer.Deserialize(message.Body, bodyType) ??
+            throw new InvalidOperationException("The message body cannot be deserialized.");
+            
         return (T)body;
     }
 
