@@ -1,11 +1,12 @@
-﻿{
+{
   "profiles": {
     "Dodkin.Service": {
       "commandName": "Project",
-      "dotnetRunMessages": true,
+      "commandLineArgs": "--Dodkin:PurgeOnStart=True",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
-      }
+      },
+      "dotnetRunMessages": true
     }
   }
 }

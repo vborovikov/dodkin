@@ -89,6 +89,14 @@ sealed class Messenger : QueueRequestHandler
 
     private async Task DeliverMessagesAsync(CancellationToken stoppingToken)
     {
+#if DEBUG
+        if (this.options.PurgeOnStart)
+        {
+            await this.db.PurgeAsync(stoppingToken);
+            this.log.LogInformation(EventIds.Sending, "Purged message store");
+        }
+#endif
+
         this.log.LogInformation(EventIds.Sending, "Started sending messages at: {time}", DateTimeOffset.Now);
 
         while (true)

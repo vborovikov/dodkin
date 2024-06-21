@@ -10,6 +10,7 @@ using Spryer;
 
 interface IMessageStore
 {
+    Task PurgeAsync(CancellationToken cancellationToken);
     Task AddAsync(MessageRecord message, CancellationToken cancellationToken);
     Task<MessageRecord> GetAsync(CancellationToken cancellationToken);
     Task RemoveAsync(MessageId messageId, CancellationToken cancellationToken);
@@ -27,6 +28,24 @@ sealed class MessageStore : IMessageStore
         this.db = db;
         this.tableName = options.Value.TableName;
         this.log = log;
+    }
+
+    public async Task PurgeAsync(CancellationToken cancellationToken)
+    {
+        await using var cnn = await this.db.OpenConnectionAsync(cancellationToken);
+        await using var tx = await cnn.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await cnn.ExecuteAsync($"delete from {this.tableName};", param: null, tx);
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            this.log.LogError(ex, "Failed to purge message store.");
+            await tx.RollbackAsync(cancellationToken);
+            
+            throw;
+        }
     }
 
     public async Task AddAsync(MessageRecord message, CancellationToken cancellationToken)

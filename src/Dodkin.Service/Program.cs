@@ -17,6 +17,9 @@ record ServiceOptions
     public TimeSpan WaitPeriod { get; init; } = TimeSpan.FromDays(1);
     public int RetryCount { get; init; } = MessageRecord.MaxRetryCount;
     public string TableName { get; init; } = "job.Delivery";
+#if DEBUG    
+    public bool PurgeOnStart { get; init; } = false;
+#endif    
 }
 
 static class Program
@@ -43,6 +46,7 @@ static class Program
         .ConfigureAppConfiguration((hostContext, configurationBuilder) =>
         {
 #if DEBUG
+            configurationBuilder.AddCommandLine(args);
             configurationBuilder.AddUserSecrets("DodkinService");
 #endif
             configurationBuilder.AddEnvironmentVariables();
