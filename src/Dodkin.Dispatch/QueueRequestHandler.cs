@@ -85,6 +85,11 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     }
 
     /// <summary>
+    /// The message properties to read on the application queue.
+    /// </summary>
+    private const MessageProperty ReadProperties = MessageProperties | MessageProperty.TimeToBeReceived;
+
+    /// <summary>
     /// The message properties to peek on the application queue.
     /// </summary>
     protected MessageProperty PeekProperties { get; init; } = MessageProperty.None;
@@ -242,17 +247,13 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             using var commandQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(CommandSubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
-            await Parallel.ForEachAsync(commandQ.ReadAllAsync(MessageProperties, cancellationToken), CreateParallelOptions<ICommand>(cancellationToken),
+            await Parallel.ForEachAsync(commandQ.ReadAllAsync(ReadProperties, cancellationToken), CreateParallelOptions<ICommand>(cancellationToken),
                 async (message, cancellationToken) =>
                 {
                     try
                     {
-                        var command = Read<ICommand>(message);
-                        if (command is RequestBase request)
-                        {
-                            request.CancellationToken = cancellationToken;
-                        }
-                        await ExecuteCommandAsync(command);
+                        using var request = ReadRequest(message, cancellationToken);
+                        await ExecuteCommandAsync(request.GetCommand());
                         this.log.LogInformation(EventIds.CommandExecuted, "Executed command <{MessageId}>[{MessageLookupId}]",
                             message.Id, message.LookupId);
                     }
@@ -283,17 +284,13 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             using var queryQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(QuerySubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
-            await Parallel.ForEachAsync(queryQ.ReadAllAsync(MessageProperties, cancellationToken), CreateParallelOptions<IQuery>(cancellationToken),
+            await Parallel.ForEachAsync(queryQ.ReadAllAsync(ReadProperties, cancellationToken), CreateParallelOptions<IQuery>(cancellationToken),
                 async (message, cancellationToken) =>
                 {
                     try
                     {
-                        var query = Read<IQuery>(message);
-                        if (query is RequestBase request)
-                        {
-                            request.CancellationToken = cancellationToken;
-                        }
-                        var result = await RunQueryAsync(query);
+                        using var request = ReadRequest(message, cancellationToken);
+                        var result = await RunQueryAsync(request.GetQuery());
                         this.log.LogInformation(EventIds.QueryExecuted, "Executed query <{MessageId}>[{MessageLookupId}]",
                             message.Id, message.LookupId);
 
@@ -380,5 +377,45 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         }
 
         return options;
+    }
+
+    private RequestWrapper ReadRequest(in Message message, CancellationToken cancellationToken) => new(this, message, cancellationToken);
+
+    private readonly struct RequestWrapper : IDisposable
+    {
+        private readonly IRequest request;
+        private readonly CancellationTokenSource? timeoutCts;
+        private readonly CancellationTokenSource? linkedCts;
+
+        public RequestWrapper(QueueRequestHandler requestHandler, in Message message, CancellationToken cancellationToken)
+        {
+            this.request = requestHandler.Read<IRequest>(message);
+            if (this.request is RequestBase mutableRequest)
+            {
+                var timeout = message.TimeToBeReceived;
+                if (timeout > DefaultTimeout)
+                {
+                    // respect non-default timeout provided by the request dispatcher
+
+                    this.timeoutCts = new CancellationTokenSource(timeout);
+                    this.linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, this.timeoutCts.Token);
+                    mutableRequest.CancellationToken = this.linkedCts.Token;
+                }
+                else
+                {
+                    mutableRequest.CancellationToken = cancellationToken;
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            this.linkedCts?.Dispose();
+            this.timeoutCts?.Dispose();
+        }
+
+        public IQuery GetQuery() => (IQuery)this.request;
+
+        public ICommand GetCommand() => (ICommand)this.request;
     }
 }

@@ -20,7 +20,10 @@ public abstract class QueueOperator : IDisposable
         MessageProperty.MessageId | MessageProperty.CorrelationId | MessageProperty.RespQueue |
         MessageProperty.Label | MessageProperty.Body | MessageProperty.Extension | MessageProperty.LookupId;
 
-    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
+    /// <summary>
+    /// Provides the queue default operating timeout.
+    /// </summary>
+    protected static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
     private readonly ConcurrentDictionary<string, Type> bodyTypeCache = new();
     private Assembly? interactionAssembly;
 
