@@ -212,14 +212,14 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
 
                     tx.Commit();
                 }
-                catch (Exception x) when (x is not OperationCanceledException)
+                catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
                 {
                     tx.Abort();
                     this.log.LogError(EventIds.MessageFailed, x, "Error dispatching message [{MessageLookupId}]", msg.LookupId);
                 }
             }
         }
-        catch (Exception x) when (x is not OperationCanceledException)
+        catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
         {
             this.log.LogError(EventIds.DispatchingFailed, x, "Error dispatching messages");
             throw;
@@ -262,7 +262,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                         this.log.LogWarning(EventIds.CommandNotImplemented, x, "Command <{MessageId}>[{MessageLookupId}] handler not implemented",
                             message.Id, message.LookupId);
                     }
-                    catch (Exception x) when (x is not OperationCanceledException)
+                    catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
                     {
                         this.log.LogError(EventIds.CommandExecutionFailed, x, "Error executing command <{MessageId}>[{MessageLookupId}]",
                             message.Id, message.LookupId);
@@ -270,7 +270,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                     }
                 });
         }
-        catch (Exception x) when (x is not OperationCanceledException)
+        catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
         {
             this.log.LogError(EventIds.DispatchingFailed, x, "Error processing commands");
             throw;
@@ -305,7 +305,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                         this.log.LogWarning(EventIds.QueryNotImplemented, x, "Query <{MessageId}>[{MessageLookupId}] handler not implemented",
                             message.Id, message.LookupId);
                     }
-                    catch (Exception x) when (x is not OperationCanceledException)
+                    catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
                     {
                         this.log.LogError(EventIds.QueryExecutionFailed, x, "Error executing query <{MessageId}>[{MessageLookupId}]",
                             message.Id, message.LookupId);
@@ -313,7 +313,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                     }
                 });
         }
-        catch (Exception x) when (x is not OperationCanceledException)
+        catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
         {
             this.log.LogError(EventIds.DispatchingFailed, x, "Error processing queries");
             throw;
