@@ -11,6 +11,8 @@ static class EventIds
     public static readonly EventId DispatchingFailed = new(3, "DispatchingFailed");
     public static readonly EventId MessageAckNack = new(4, "MessageAckNack");
     public static readonly EventId EndpointFailed = new(5, "EndpointFailed");
+    public static readonly EventId DispatchingStarted = new(6, "DispatchingStarted");
+    public static readonly EventId DispatchingStopped = new(7, "DispatchingStopped");
 
     // Dispatcher events
 

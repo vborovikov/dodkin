@@ -170,6 +170,8 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
 
         try
         {
+            this.log.LogInformation(EventIds.DispatchingStarted, "Dispatching requests started");
+
             while (true)
             {
                 using var msg = await appQ.PeekAsync(MessageProperty.LookupId | MessageProperty.Extension | this.PeekProperties, null, cancellationToken);
@@ -224,6 +226,10 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             this.log.LogError(EventIds.DispatchingFailed, x, "Error dispatching messages");
             throw;
         }
+        finally
+        {
+            this.log.LogInformation(EventIds.DispatchingStopped, "Dispatching requests stopped");
+        }
     }
 
     /// <summary>
@@ -244,6 +250,8 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     {
         try
         {
+            this.log.LogInformation(EventIds.DispatchingStarted, "Processing commands started");
+
             using var commandQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(CommandSubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
@@ -275,12 +283,18 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             this.log.LogError(EventIds.DispatchingFailed, x, "Error processing commands");
             throw;
         }
+        finally
+        {
+            this.log.LogInformation(EventIds.DispatchingStopped, "Processing commands stopped");
+        }
     }
 
     private async Task ProcessQueriesAsync(CancellationToken cancellationToken)
     {
         try
         {
+            this.log.LogInformation(EventIds.DispatchingStarted, "Processing queries started");
+
             using var queryQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(QuerySubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
@@ -317,6 +331,10 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         {
             this.log.LogError(EventIds.DispatchingFailed, x, "Error processing queries");
             throw;
+        }
+        finally
+        {
+            this.log.LogInformation(EventIds.DispatchingStopped, "Processing queries stopped");
         }
     }
 
