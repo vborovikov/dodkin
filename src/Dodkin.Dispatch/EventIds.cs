@@ -44,4 +44,6 @@ static class EventIds
     public static readonly EventId QueryResultSent = new(44, "QueryResultSent");
     public static readonly EventId QueryNotImplemented = new(45, "QueryNotImplemented");
     public static readonly EventId QueryExecutionFailed = new(46, "QueryExecutionFailed");
+    public static readonly EventId CommandExecutionCancelled = new(47, "CommandExecutionCancelled");
+    public static readonly EventId QueryExecutionCancelled = new(48, "QueryExecutionCancelled");
 }

@@ -265,12 +265,18 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                         this.log.LogInformation(EventIds.CommandExecuted, "Executed command <{MessageId}>[{MessageLookupId}]",
                             message.Id, message.LookupId);
                     }
+                    catch (OperationCanceledException x) when (x.CancellationToken != cancellationToken)
+                    {
+                        this.log.LogWarning(EventIds.CommandExecutionCancelled, x, "Command <{MessageId}>[{MessageLookupId}] cancelled",
+                            message.Id, message.LookupId);
+                        deadLetterQ.Write(WrapPoisonMessage(message, x), QueueTransaction.SingleMessage);
+                    }
                     catch (Exception x) when (x is NotImplementedException || x.GetBaseException() is NotImplementedException)
                     {
                         this.log.LogWarning(EventIds.CommandNotImplemented, x, "Command <{MessageId}>[{MessageLookupId}] handler not implemented",
                             message.Id, message.LookupId);
                     }
-                    catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
+                    catch (Exception x) when (x is not OperationCanceledException)
                     {
                         this.log.LogError(EventIds.CommandExecutionFailed, x, "Error executing command <{MessageId}>[{MessageLookupId}]",
                             message.Id, message.LookupId);
@@ -314,12 +320,18 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                         this.log.LogInformation(EventIds.QueryResultSent, "Sent query <{MessageId}>[{MessageLookupId}] result",
                             message.Id, message.LookupId);
                     }
+                    catch (OperationCanceledException x) when (x.CancellationToken != cancellationToken)
+                    {
+                        this.log.LogWarning(EventIds.QueryExecutionCancelled, x, "Query <{MessageId}>[{MessageLookupId}] cancelled",
+                            message.Id, message.LookupId);
+                        deadLetterQ.Write(WrapPoisonMessage(message, x), QueueTransaction.SingleMessage);
+                    }
                     catch (Exception x) when (x is NotImplementedException || x.GetBaseException() is NotImplementedException)
                     {
                         this.log.LogWarning(EventIds.QueryNotImplemented, x, "Query <{MessageId}>[{MessageLookupId}] handler not implemented",
                             message.Id, message.LookupId);
                     }
-                    catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
+                    catch (Exception x) when (x is not OperationCanceledException)
                     {
                         this.log.LogError(EventIds.QueryExecutionFailed, x, "Error executing query <{MessageId}>[{MessageLookupId}]",
                             message.Id, message.LookupId);
