@@ -87,7 +87,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     /// <summary>
     /// The message properties to read on the application queue.
     /// </summary>
-    private const MessageProperty ReadProperties = MessageProperties | MessageProperty.TimeToBeReceived;
+    protected MessageProperty ReadProperties { get; init; } = MessageProperty.TimeToBeReceived;
 
     /// <summary>
     /// The message properties to peek on the application queue.
@@ -255,7 +255,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             using var commandQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(CommandSubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
-            await Parallel.ForEachAsync(commandQ.ReadAllAsync(ReadProperties, cancellationToken), CreateParallelOptions<ICommand>(cancellationToken),
+            await Parallel.ForEachAsync(commandQ.ReadAllAsync(MessageProperties | this.ReadProperties, cancellationToken), CreateParallelOptions<ICommand>(cancellationToken),
                 async (message, cancellationToken) =>
                 {
                     try
@@ -304,7 +304,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             using var queryQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(QuerySubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
-            await Parallel.ForEachAsync(queryQ.ReadAllAsync(ReadProperties, cancellationToken), CreateParallelOptions<IQuery>(cancellationToken),
+            await Parallel.ForEachAsync(queryQ.ReadAllAsync(MessageProperties | this.ReadProperties, cancellationToken), CreateParallelOptions<IQuery>(cancellationToken),
                 async (message, cancellationToken) =>
                 {
                     try
@@ -409,7 +409,8 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         return options;
     }
 
-    private RequestWrapper ReadRequest(in Message message, CancellationToken cancellationToken) => new(this, message, cancellationToken);
+    private RequestWrapper ReadRequest(in Message message, CancellationToken cancellationToken) => 
+        new(this, message, cancellationToken);
 
     private readonly struct RequestWrapper : IDisposable
     {
@@ -425,7 +426,8 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             if (this.request is RequestBase mutableRequest)
             {
                 var timeout = message.TimeToBeReceived;
-                if (timeout > DefaultTimeout && timeout < MaxSupportedTimeout)
+                if (requestHandler.ReadProperties.HasFlag(MessageProperty.TimeToBeReceived) &&
+                    timeout > DefaultTimeout && timeout < MaxSupportedTimeout)
                 {
                     // respect non-default timeout provided by the request dispatcher
 

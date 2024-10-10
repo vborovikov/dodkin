@@ -14,7 +14,7 @@ using Relay.RequestModel;
 public abstract class QueueOperator : IDisposable
 {
     /// <summary>
-    /// The default message properties that are recognized by the operator.
+    /// The essential message properties that are recognized by the operator.
     /// </summary>
     protected const MessageProperty MessageProperties =
         MessageProperty.MessageId | MessageProperty.CorrelationId | MessageProperty.RespQueue |
