@@ -413,6 +413,8 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
 
     private readonly struct RequestWrapper : IDisposable
     {
+        private static readonly TimeSpan MaxSupportedTimeout = TimeSpan.FromMilliseconds(0xfffffffe);
+
         private readonly IRequest request;
         private readonly CancellationTokenSource? timeoutCts;
         private readonly CancellationTokenSource? linkedCts;
@@ -423,7 +425,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             if (this.request is RequestBase mutableRequest)
             {
                 var timeout = message.TimeToBeReceived;
-                if (timeout > DefaultTimeout)
+                if (timeout > DefaultTimeout && timeout < MaxSupportedTimeout)
                 {
                     // respect non-default timeout provided by the request dispatcher
 
