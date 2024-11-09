@@ -50,7 +50,7 @@ sealed class Messenger : QueueRequestHandler
     {
         try
         {
-            this.log.LogInformation(EventIds.Receiving, "Started receiving messges");
+            this.log.LogInformation(EventIds.Receiving, "Started receiving messages");
 
             using var serviceQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(RequestSubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
