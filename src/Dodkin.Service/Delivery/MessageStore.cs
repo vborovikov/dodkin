@@ -121,22 +121,30 @@ sealed class MessageStore : IMessageStore
 
     public async Task RetryAsync(MessageId messageId, CancellationToken cancellationToken)
     {
-        await using var cnn = await this.db.OpenConnectionAsync(cancellationToken);
-        await using var tx = await cnn.BeginTransactionAsync(cancellationToken);
-
         try
         {
-            await cnn.ExecuteAsync(
-                $"""
+            await using var cnn = await this.db.OpenConnectionAsync(cancellationToken);
+            await using var tx = await cnn.BeginTransactionAsync(cancellationToken);
+
+            try
+            {
+                await cnn.ExecuteAsync(
+                    $"""
                 update {this.tableName} set RetryCount = RetryCount + 1
                 where MessageId = @MessageId;
                 """, new { MessageId = messageId }, tx);
-            await tx.CommitAsync(cancellationToken);
+                await tx.CommitAsync(cancellationToken);
+            }
+            catch (Exception x)
+            {
+                this.log.LogWarning(x, "Failed to retry message {MessageId}.", messageId);
+                await tx.RollbackAsync(cancellationToken);
+                // no throw
+            }
         }
-        catch (Exception)
+        catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
         {
-            await tx.RollbackAsync(cancellationToken);
-
+            this.log.LogWarning(x, "Failed to roll back from retrying message {MessageId}.", messageId);
             // no throw
         }
     }

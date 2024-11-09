@@ -48,10 +48,10 @@ sealed class Messenger : QueueRequestHandler
 
     private async Task ReceiveMessagesAsync(CancellationToken stoppingToken)
     {
-        this.log.LogInformation(EventIds.Receiving, "Started receiving requests at: {time}", DateTimeOffset.Now);
-
         try
         {
+            this.log.LogInformation(EventIds.Receiving, "Started receiving messges");
+
             using var serviceQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(RequestSubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
@@ -60,13 +60,13 @@ sealed class Messenger : QueueRequestHandler
                 {
                     try
                     {
-                        this.log.LogInformation(EventIds.Receiving, "Received request <{MessageId}>", message.Id);
+                        this.log.LogInformation(EventIds.Receiving, "Received message <{MessageId}>", message.Id);
 
                         // store the message
                         var messageRecord = MessageRecord.From(message);
                         await this.db.AddAsync(messageRecord, cancellationToken);
 
-                        this.log.LogInformation(EventIds.Receiving, "Stored request <{MessageId}> (to be sent at {DueTime})",
+                        this.log.LogInformation(EventIds.Receiving, "Stored message <{MessageId}> (to be sent at {DueTime})",
                             message.Id, messageRecord.DueTime.ToLocalTime());
 
                         // signal for delivery
@@ -74,16 +74,21 @@ sealed class Messenger : QueueRequestHandler
                     }
                     catch (Exception x) when (x is not OperationCanceledException)
                     {
-                        this.log.LogError(EventIds.Receiving, x, "Failed processing request <{MessageId}>", message.Id);
+                        this.log.LogError(EventIds.Receiving, x, "Failed processing message <{MessageId}>", message.Id);
                         deadLetterQ.Write(WrapPoisonMessage(message, x), QueueTransaction.SingleMessage);
 
                         TrySendBack(message, message.Id);
                     }
                 });
         }
-        catch (Exception x) when (x is not OperationCanceledException)
+        catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != stoppingToken)
         {
-            this.log.LogError(EventIds.Receiving, x, "Failed receiving requests");
+            this.log.LogError(EventIds.Receiving, x, "Failed receiving messages");
+            throw;
+        }
+        finally
+        {
+            this.log.LogInformation(EventIds.Receiving, "Stopped receiving messages");
         }
     }
 
@@ -97,96 +102,109 @@ sealed class Messenger : QueueRequestHandler
         }
 #endif
 
-        this.log.LogInformation(EventIds.Sending, "Started sending messages at: {time}", DateTimeOffset.Now);
-
-        while (true)
+        try
         {
-            // get the current message from the db
-            var messageRecord = await this.db.GetAsync(stoppingToken);
-            if (messageRecord is null)
+            this.log.LogInformation(EventIds.Sending, "Started sending messages");
+
+            while (true)
             {
-                this.log.LogInformation(EventIds.Sending, "No message to send");
-            }
+                // get the current message from the db
+                var messageRecord = await this.db.GetAsync(stoppingToken);
+                if (messageRecord is null)
+                {
+                    this.log.LogInformation(EventIds.Sending, "No message to send");
+                }
 
-            // get the wait period
-            var dueTime = messageRecord?.DueTime ?? (DateTimeOffset.Now + this.options.WaitPeriod);
-            var waitPeriod = dueTime - DateTimeOffset.Now;
-            if (waitPeriod > TimeSpan.Zero)
-            {
-                this.log.LogInformation(EventIds.Sending, "Waiting for {WaitPeriod} before sending messages ({dueTime})",
-                    waitPeriod.ToText(), dueTime.ToLocalTime());
-
-                // wait for it or a new message signal
-                await Task.WhenAny(Task.Delay(waitPeriod, stoppingToken), this.msgEvent.WaitAsync());
-                // reset the signal here
-                this.msgEvent.Reset();
-
-                // start again if wait period isn't over
-                waitPeriod = dueTime - DateTimeOffset.Now;
+                // get the wait period
+                var dueTime = messageRecord?.DueTime ?? (DateTimeOffset.Now + this.options.WaitPeriod);
+                var waitPeriod = dueTime - DateTimeOffset.Now;
                 if (waitPeriod > TimeSpan.Zero)
                 {
-                    // time to check the db again
-                    continue;
-                }
-            }
+                    this.log.LogInformation(EventIds.Sending, "Waiting for {WaitPeriod} before sending messages ({dueTime})",
+                        waitPeriod.ToText(), dueTime.ToLocalTime());
 
-            if (messageRecord is null)
-            {
-                // we waited the whole wait period, check the db again
-                continue;
-            }
+                    // wait for it or a new message signal
+                    await Task.WhenAny(Task.Delay(waitPeriod, stoppingToken), this.msgEvent.WaitAsync());
+                    // reset the signal here
+                    this.msgEvent.Reset();
 
-            try
-            {
-                if (messageRecord.RetryCount < this.options.RetryCount)
-                {
-                    this.log.LogInformation(EventIds.Sending, "Sending message <{MessageId}>, retry {RetryCount}/{MaxRetryCount}",
-                        messageRecord.MessageId, messageRecord.RetryCount + 1, this.options.RetryCount);
-
-                    // send it to the mq
-                    using var message = messageRecord.CreateMessage(this.Endpoint, this.options.Timeout);
-                    //todo: set ConnectorType and other properties specific to the connector app
-                    var destinationQ = GetResponseQueue(messageRecord.Destination);
-                    destinationQ.Write(message, destinationQ.IsTransactional ? QueueTransaction.SingleMessage : null);
-
-                    this.log.LogInformation(EventIds.Sending, "Sent message <{MessageId}> to \"{Destination}\"",
-                        messageRecord.MessageId, messageRecord.Destination);
-
-                    // wait until the ACK message
-                    if (this.Endpoint.AdministrationQueue is not null)
+                    // start again if wait period isn't over
+                    waitPeriod = dueTime - DateTimeOffset.Now;
+                    if (waitPeriod > TimeSpan.Zero)
                     {
-                        this.log.LogDebug(EventIds.Sending, "Waiting for ACK message <{MessageId}>", messageRecord.MessageId);
-
-                        using var adminQ = this.mq.CreateReader(this.Endpoint.AdministrationQueue);
-                        using var ack = await adminQ.ReadAsync(message.Id, MessageProperty.Class, this.options.Timeout, stoppingToken);
-
-                        if (ack.IsEmpty || ack.Class != MessageClass.AckReceive)
-                        {
-                            await this.db.RetryAsync(messageRecord.MessageId, stoppingToken);
-                            this.log.LogWarning(EventIds.Sending, "Failed to receive ACK message <{MessageId}>, retrying", messageRecord.MessageId);
-                            continue;
-                        }
-
-                        this.log.LogInformation(EventIds.Sending, "Received ACK message <{MessageId}>", messageRecord.MessageId);
+                        // time to check the db again
+                        continue;
                     }
                 }
-                else
-                {
-                    this.log.LogWarning(EventIds.Sending, "Failed to send message <{MessageId}> to \"{Destination}\", too many retries",
-                        messageRecord.MessageId, messageRecord.Destination);
 
-                    TrySendBack(messageRecord.Message, messageRecord.MessageId);
+                if (messageRecord is null)
+                {
+                    // we waited the whole wait period, check the db again
+                    continue;
                 }
 
-                // delete the message from the db
-                await this.db.RemoveAsync(messageRecord.MessageId, stoppingToken);
-                this.log.LogDebug(EventIds.Sending, "Finished processing message <{MessageId}>", messageRecord.MessageId);
+                try
+                {
+                    if (messageRecord.RetryCount < this.options.RetryCount)
+                    {
+                        this.log.LogInformation(EventIds.Sending, "Sending message <{MessageId}>, retry {RetryCount}/{MaxRetryCount}",
+                            messageRecord.MessageId, messageRecord.RetryCount + 1, this.options.RetryCount);
+
+                        // send it to the mq
+                        using var message = messageRecord.CreateMessage(this.Endpoint, this.options.Timeout);
+                        //todo: set ConnectorType and other properties specific to the connector app
+                        var destinationQ = GetResponseQueue(messageRecord.Destination);
+                        destinationQ.Write(message, destinationQ.IsTransactional ? QueueTransaction.SingleMessage : null);
+
+                        this.log.LogInformation(EventIds.Sending, "Sent message <{MessageId}> to \"{Destination}\"",
+                            messageRecord.MessageId, messageRecord.Destination);
+
+                        // wait until the ACK message
+                        if (this.Endpoint.AdministrationQueue is not null)
+                        {
+                            this.log.LogDebug(EventIds.Sending, "Waiting for ACK message <{MessageId}>", messageRecord.MessageId);
+
+                            using var adminQ = this.mq.CreateReader(this.Endpoint.AdministrationQueue);
+                            using var ack = await adminQ.ReadAsync(message.Id, MessageProperty.Class, this.options.Timeout, stoppingToken);
+
+                            if (ack.IsEmpty || ack.Class != MessageClass.AckReceive)
+                            {
+                                await this.db.RetryAsync(messageRecord.MessageId, stoppingToken);
+                                this.log.LogWarning(EventIds.Sending, "Failed to receive ACK message <{MessageId}>, retrying", messageRecord.MessageId);
+                                continue;
+                            }
+
+                            this.log.LogInformation(EventIds.Sending, "Received ACK message <{MessageId}>", messageRecord.MessageId);
+                        }
+                    }
+                    else
+                    {
+                        this.log.LogWarning(EventIds.Sending, "Failed to send message <{MessageId}> to \"{Destination}\", too many retries",
+                            messageRecord.MessageId, messageRecord.Destination);
+
+                        TrySendBack(messageRecord.Message, messageRecord.MessageId);
+                    }
+
+                    // delete the message from the db
+                    await this.db.RemoveAsync(messageRecord.MessageId, stoppingToken);
+                    this.log.LogDebug(EventIds.Sending, "Finished processing message <{MessageId}>", messageRecord.MessageId);
+                }
+                catch (Exception x) when (x is not OperationCanceledException)
+                {
+                    this.log.LogError(EventIds.Sending, x, "Failed to send message to the queue \"{MessageQueue}\"", messageRecord.Destination);
+                    await this.db.RetryAsync(messageRecord.MessageId, stoppingToken);
+                }
             }
-            catch (Exception x) when (x is not OperationCanceledException)
-            {
-                this.log.LogError(EventIds.Sending, x, "Failed to send message to the queue \"{MessageQueue}\"", messageRecord.Destination);
-                await this.db.RetryAsync(messageRecord.MessageId, stoppingToken);
-            }
+        }
+        catch (Exception x) when (x is not OperationCanceledException ocx ||
+            (ocx.CancellationToken != default && ocx.CancellationToken != stoppingToken))
+        {
+            this.log.LogError(EventIds.Sending, x, "Failed sending messages");
+            throw;
+        }
+        finally
+        {
+            this.log.LogInformation(EventIds.Sending, "Stopped sending messages");
         }
     }
 
