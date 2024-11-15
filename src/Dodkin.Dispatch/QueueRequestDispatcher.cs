@@ -2,7 +2,6 @@ namespace Dodkin.Dispatch;
 
 using System;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -35,7 +34,7 @@ public interface IQueueRequestDispatcher : IRequestDispatcher
 /// <summary>
 /// Represents a queue operator that schedules commands to the appropriate handlers.
 /// </summary>
-public interface IQueueRequestScheduler : IQueueRequestDispatcher
+public interface IQueueRequestScheduler : IQueueRequestDispatcher, IRequestScheduler
 {
     /// <summary>
     /// Schedules a command to be executed at a specific time.
@@ -45,7 +44,7 @@ public interface IQueueRequestScheduler : IQueueRequestDispatcher
     /// <param name="at">The time at which the command should be executed.</param>
     /// <param name="timeout">The timeout.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task ExecuteAsync<TCommand>(TCommand command, DateTimeOffset at, TimeSpan? timeout = default) where TCommand : ICommand;
+    Task ScheduleAsync<TCommand>(TCommand command, DateTimeOffset at, TimeSpan timeout) where TCommand : ICommand;
 }
 
 /// <summary>
@@ -111,16 +110,19 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
         RunWaitAsync(query, timeout);
 
     /// <inheritdoc />
-    public async Task ExecuteAsync<TCommand>(TCommand command, DateTimeOffset at, TimeSpan? timeout = default) where TCommand : ICommand
+    public Task ScheduleAsync<TCommand>(TCommand command, DateTimeOffset at) where TCommand : ICommand
     {
-        if (at <= DateTimeOffset.Now)
-            throw new ArgumentOutOfRangeException(nameof(at));
+        return ScheduleAsync(command, at, DefaultScheduleTimeout);
+    }
 
-        if (timeout < TimeSpan.Zero)
-            throw new ArgumentOutOfRangeException(nameof(timeout));
+    /// <inheritdoc />
+    public async Task ScheduleAsync<TCommand>(TCommand command, DateTimeOffset at, TimeSpan timeout) where TCommand : ICommand
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(at, DateTimeOffset.Now);
+        ArgumentOutOfRangeException.ThrowIfLessThan(timeout, TimeSpan.Zero);
 
         using var message = CreateMessage(command);
-        message.TimeToBeReceived = timeout ?? DefaultScheduleTimeout;
+        message.TimeToBeReceived = timeout;
         message.Acknowledgment = MessageAcknowledgment.FullReceive;
         message.AppSpecific = (uint)at.ToUnixTimeSeconds();
 
@@ -137,7 +139,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
             message.Label = label;
         }
 
-        await ExecuteWaitAsync(message, MessageClass.AckReceive, timeout ?? DefaultScheduleTimeout, command.CancellationToken);
+        await ExecuteWaitAsync(message, MessageClass.AckReceive, timeout, command.CancellationToken);
     }
 
     private async Task ExecuteWaitAsync<TCommand>(TCommand command, TimeSpan? timeout) where TCommand : ICommand

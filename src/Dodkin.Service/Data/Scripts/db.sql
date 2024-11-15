@@ -28,6 +28,7 @@ create table job.Delivery
     MessageId varchar(50) not null primary key,
     Message varbinary(8000) not null,
     Destination varchar(250) not null,
-    DueTime datetimeoffset not null index IX_Delivery_DueTime,
-    RetryCount smallint not null default 0
+    DueTime datetimeoffset not null,
+    RetryCount smallint not null constraint DF_Delivery_RetryCount default 0,
+    index IX_Delivery_DueTime nonclustered (DueTime asc)
 );
