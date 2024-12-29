@@ -123,7 +123,7 @@ static partial class MQ
 
     public static uint GetTimeout(TimeSpan? timeout) => timeout switch
     {
-        TimeSpan x when x >= TimeSpan.Zero && x != Timeout.InfiniteTimeSpan => (uint)x.TotalMilliseconds,
+        TimeSpan x when x >= TimeSpan.Zero => (uint)x.TotalMilliseconds,
         _ => 0xFFFFFFFF,
     };
 

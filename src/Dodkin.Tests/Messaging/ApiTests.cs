@@ -13,6 +13,7 @@ public class ApiTests
     [DataRow("00:00:01", 0x3E8u)]
     [DataRow("00:05:00", 0x493E0u)]
     [DataRow("-00:00:00.0010000", 0xFFFFFFFFu)]
+    [DataRow("-00:00:00.0000001", 0xFFFFFFFFu)]
     public void GetTimeout_TimeSpan_Converted(string? timeout, uint actual)
     {
         var timeSpan = string.IsNullOrWhiteSpace(timeout) ? (TimeSpan?)null : TimeSpan.Parse(timeout);
