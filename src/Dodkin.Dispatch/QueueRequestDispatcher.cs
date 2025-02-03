@@ -223,7 +223,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
 
         if (ack.IsEmpty || ack.Class != expectedAck)
         {
-            throw new TimeoutException();
+            throw new TimeoutException($"Timed out based on message <{messageId}> ack/nack: {ack.Class}");
         }
     }
 }
