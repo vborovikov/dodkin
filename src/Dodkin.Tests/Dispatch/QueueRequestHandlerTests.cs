@@ -78,23 +78,23 @@ public class QueueRequestHandlerTests
     [TestMethod]
     public async Task DispatchRequestsAsync_Command_DispatchedToCommandSubqueue()
     {
-        var command = new TestCommand(7);
+        var command = new TestCommand(Random.Shared.Next());
         await requestDispatcher.ExecuteAsync(command);
 
         await Task.Delay(500); // Allow time for dispatching
 
-        Assert.AreEqual(7, (requestHandler.ExecutedCommand as TestCommand)?.Parameter);
+        Assert.AreEqual(command.Parameter, (requestHandler.ExecutedCommand as TestCommand)?.Parameter);
     }
 
     [TestMethod]
     public async Task DispatchRequestsAsync_Query_DispatchedToQuerySubqueue()
     {
-        var query = new TestQuery(7);
+        var query = new TestQuery(Random.Shared.Next());
         var result = await requestDispatcher.RunAsync(query);
 
         await Task.Delay(500); // Allow time for dispatching
 
-        Assert.AreEqual(7, (requestHandler.RunQuery as TestQuery).Parameter);
+        Assert.AreEqual(query.Parameter, (requestHandler.RunQuery as TestQuery).Parameter);
     }
 
     [TestMethod]

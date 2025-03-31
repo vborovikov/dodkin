@@ -16,6 +16,11 @@ public record MessageEndpoint
     public required MessageQueueName ApplicationQueue { get; init; }
 
     /// <summary>
+    /// The response queue for outgoing messages.
+    /// </summary>
+    public MessageQueueName? ResponseQueue { get; init; }
+    
+    /// <summary>
     /// The application subqueue for invalid messages.
     /// </summary>
     public MessageQueueName? InvalidMessageQueue { get; init; }
@@ -40,6 +45,7 @@ public record MessageEndpoint
         return new MessageEndpoint
         {
             ApplicationQueue = new DirectFormatName(queueName, MessageQueueName.LocalComputer, isPrivate: true),
+            ResponseQueue = new DirectFormatName(queueName + "-data", MessageQueueName.LocalComputer, isPrivate: true),
             InvalidMessageQueue = new DirectFormatName(queueName + ";invalid", MessageQueueName.LocalComputer, isPrivate: true),
             AdministrationQueue = new DirectFormatName(queueName + "-admin", MessageQueueName.LocalComputer, isPrivate: true),
             DeadLetterQueue = new DirectFormatName(queueName + "-dlq", MessageQueueName.LocalComputer, isPrivate: true),
@@ -58,6 +64,12 @@ public record MessageEndpoint
         {
             MessageQueue.Create(this.ApplicationQueue,
                 isTransactional: isTransactional, hasJournal: true, label: queueLabel);
+        }
+
+        if (this.ResponseQueue is not null && !MessageQueue.Exists(this.ResponseQueue))
+        {
+            MessageQueue.Create(this.ResponseQueue,
+                isTransactional: true, hasJournal: false, label: queueLabel);
         }
 
         if (!MessageQueue.Exists(this.AdministrationQueue))

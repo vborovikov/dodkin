@@ -81,7 +81,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
     {
         this.log = logger;
         this.requestQ = messageQueueFactory.CreateWriter(requestQueueName);
-        this.responseQ = messageQueueFactory.CreateReader(this.Endpoint.ApplicationQueue);
+        this.responseQ = messageQueueFactory.CreateReader(this.Endpoint.ResponseQueue ?? this.Endpoint.ApplicationQueue);
         this.adminQ = messageQueueFactory.CreateReader(this.Endpoint.AdministrationQueue);
     }
 

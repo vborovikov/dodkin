@@ -119,7 +119,7 @@ public abstract class QueueOperator : IDisposable
         {
             CorrelationId = corellationId,
             Label = bodyType.Name,
-            ResponseQueue = this.Endpoint.ApplicationQueue,
+            ResponseQueue = this.Endpoint.ResponseQueue ?? this.Endpoint.ApplicationQueue,
 
             AdministrationQueue = this.Endpoint.AdministrationQueue,
             TimeToReachQueue = timeout ?? this.Timeout,

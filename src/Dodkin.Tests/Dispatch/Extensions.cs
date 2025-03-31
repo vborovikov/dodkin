@@ -15,6 +15,10 @@ static class Extensions
         {
             MessageQueue.Delete(endpoint.AdministrationQueue);
         }
+        if (endpoint.ResponseQueue is not null && MessageQueue.Exists(endpoint.ResponseQueue))
+        {
+            MessageQueue.Delete(endpoint.ResponseQueue);
+        }
         if (MessageQueue.Exists(endpoint.ApplicationQueue))
         {
             MessageQueue.Delete(endpoint.ApplicationQueue);
