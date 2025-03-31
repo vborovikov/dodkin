@@ -378,7 +378,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     {
         try
         {
-            this.log.LogInformation(EventIds.DispatchingStarted, "Processing invalid messages started");
+            this.log.LogInformation(EventIds.DispatchingStarted, "Processing invalid requests started");
 
             using var invalidQ = this.mq.CreateReader(this.Endpoint.InvalidMessageQueue ?? this.Endpoint.ApplicationQueue.GetSubqueueName(InvalidSubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
@@ -386,7 +386,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             await Parallel.ForEachAsync(invalidQ.ReadAllAsync(MessageProperties | this.ReadProperties, cancellationToken), CreateParallelOptions<IRequest>(cancellationToken),
                 (message, _) =>
                 {
-                    this.log.LogWarning(EventIds.MessageRejected, "Rejected message <{MessageId}>[{MessageLookupId}]",
+                    this.log.LogWarning(EventIds.MessageRejected, "Rejected invalid request <{MessageId}>[{MessageLookupId}]",
                         message.Id, message.LookupId);
 
                     deadLetterQ.Write(WrapPoisonMessage(message, default), QueueTransaction.SingleMessage);
@@ -395,12 +395,12 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         }
         catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
         {
-            this.log.LogError(EventIds.DispatchingFailed, x, "Error processing invalid messages");
+            this.log.LogError(EventIds.DispatchingFailed, x, "Error processing invalid requests");
             throw;
         }
         finally
         {
-            this.log.LogInformation(EventIds.DispatchingStopped, "Processing invalid messages stopped");
+            this.log.LogInformation(EventIds.DispatchingStopped, "Processing invalid requests stopped");
         }
     }
  
