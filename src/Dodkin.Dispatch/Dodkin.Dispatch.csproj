@@ -32,8 +32,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dodkin" Version="0.6.5" />
+    <PackageReference Include="Dodkin" Version="0.6.5" Condition="'$(Configuration)'=='Release'" />
+    <ProjectReference Include="..\Dodkin\Dodkin.csproj" Condition="'$(Configuration)'=='Debug'" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
     <PackageReference Include="RelayTk" Version="2.6.1" />
   </ItemGroup>
+
 </Project>

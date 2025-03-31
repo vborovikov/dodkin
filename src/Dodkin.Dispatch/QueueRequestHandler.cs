@@ -15,7 +15,18 @@ using Relay.RequestModel.Default;
 public class QueueRequestHandler : QueueOperator, IRequestDispatcher
 {
     private const int ResponseCacheCapacity = 8;
+
+    /// <summary>
+    /// The name of the subqueue used for invalid messages.
+    /// </summary>
+    private const string InvalidSubqueueName = "invalid";
+    /// <summary>
+    /// The name of the subqueue used for commands.
+    /// </summary>
     private const string CommandSubqueueName = "commands";
+    /// <summary>
+    /// The name of the subqueue used for queries.
+    /// </summary>
     private const string QuerySubqueueName = "queries";
     /// <summary>
     /// The name of the subqueue used for deferring requests specific to the derived type.
@@ -158,68 +169,81 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             DispatchRequestsAsync(cancellationToken),
             ProcessCommandsAsync(cancellationToken),
             ProcessQueriesAsync(cancellationToken),
+            ProcessInvalidAsync(cancellationToken),
         };
     }
 
     private async Task DispatchRequestsAsync(CancellationToken cancellationToken)
     {
         using var appQ = this.mq.CreateSorter(this.Endpoint.ApplicationQueue);
+        using var appCQ = this.mq.CreateCursor(appQ);
         using var cmdSQ = new Subqueue(this.Endpoint.ApplicationQueue.GetSubqueueName(CommandSubqueueName));
         using var qrySQ = new Subqueue(this.Endpoint.ApplicationQueue.GetSubqueueName(QuerySubqueueName));
         using var reqSQ = new Subqueue(this.Endpoint.ApplicationQueue.GetSubqueueName(RequestSubqueueName));
+        using var invSQ = new Subqueue(this.Endpoint.InvalidMessageQueue ?? this.Endpoint.ApplicationQueue.GetSubqueueName(InvalidSubqueueName));
 
         try
         {
             this.log.LogInformation(EventIds.DispatchingStarted, "Dispatching requests started");
 
-            while (true)
-            {
-                using var msg = await appQ.PeekAsync(MessageProperty.LookupId | MessageProperty.Extension | this.PeekProperties, null, cancellationToken);
-                this.log.LogInformation(EventIds.MessageReceived, "Received message [{MessageLookupId}]", msg.LookupId);
-
-                using var tx = new QueueTransaction();
-                try
+            await Parallel.ForEachAsync(appCQ.PeekAllAsync(MessageProperty.LookupId | MessageProperty.Extension | this.PeekProperties, cancellationToken), CreateParallelOptions<IRequest>(cancellationToken),
+                (msg, cancellationToken) =>
                 {
-                    if (CanDispatchRequest(msg))
+                    this.log.LogInformation(EventIds.MessageReceived, "Received message [{MessageLookupId}]", msg.LookupId);
+
+                    using var tx = new QueueTransaction();
+                    try
                     {
-                        if (TryDispatchRequest(msg))
+                        if (CanDispatchRequest(msg))
                         {
-                            this.log.LogInformation(EventIds.RequestDispatched, "Dispatched request [{MessageLookupId}]", msg.LookupId);
+                            try
+                            {
+                                if (TryDispatchRequest(msg))
+                                {
+                                    this.log.LogInformation(EventIds.RequestDispatched, "Dispatched request [{MessageLookupId}]", msg.LookupId);
+                                }
+                                else
+                                {
+                                    appQ.Move(msg.LookupId, reqSQ, tx);
+                                    this.log.LogInformation(EventIds.RequestDeferred, "Deferred request [{MessageLookupId}]", msg.LookupId);
+                                }
+                            }
+                            catch (Exception x)
+                            {
+                                this.log.LogError(EventIds.RequestDispatchFailed, x, "Error dispatching request [{MessageLookupId}]", msg.LookupId);
+                                appQ.Move(msg.LookupId, invSQ, tx);
+                            }
                         }
                         else
                         {
-                            appQ.Move(msg.LookupId, reqSQ, tx);
-                            this.log.LogInformation(EventIds.RequestDeferred, "Deferred request [{MessageLookupId}]", msg.LookupId);
+                            var requestType = FindBodyType(msg);
+                            if (typeof(ICommand).IsAssignableFrom(requestType))
+                            {
+                                appQ.Move(msg.LookupId, cmdSQ, tx);
+                                this.log.LogInformation(EventIds.CommandDispatched, "Dispatched command [{MessageLookupId}]", msg.LookupId);
+                            }
+                            else if (typeof(IQuery).IsAssignableFrom(requestType))
+                            {
+                                appQ.Move(msg.LookupId, qrySQ, tx);
+                                this.log.LogInformation(EventIds.QueryDispatched, "Dispatched query [{MessageLookupId}]", msg.LookupId);
+                            }
+                            else
+                            {
+                                appQ.Reject(msg.LookupId, tx);
+                                this.log.LogWarning(EventIds.MessageRejected, "Rejected message [{MessageLookupId}]", msg.LookupId);
+                            }
                         }
+
+                        tx.Commit();
                     }
-                    else
+                    catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
                     {
-                        var requestType = FindBodyType(msg);
-                        if (typeof(ICommand).IsAssignableFrom(requestType))
-                        {
-                            appQ.Move(msg.LookupId, cmdSQ, tx);
-                            this.log.LogInformation(EventIds.CommandDispatched, "Dispatched command [{MessageLookupId}]", msg.LookupId);
-                        }
-                        else if (typeof(IQuery).IsAssignableFrom(requestType))
-                        {
-                            appQ.Move(msg.LookupId, qrySQ, tx);
-                            this.log.LogInformation(EventIds.QueryDispatched, "Dispatched query [{MessageLookupId}]", msg.LookupId);
-                        }
-                        else
-                        {
-                            appQ.Reject(msg.LookupId, tx);
-                            this.log.LogWarning(EventIds.MessageRejected, "Rejected message [{MessageLookupId}]", msg.LookupId);
-                        }
+                        tx.Abort();
+                        this.log.LogError(EventIds.MessageFailed, x, "Error dispatching message [{MessageLookupId}]", msg.LookupId);
                     }
 
-                    tx.Commit();
-                }
-                catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
-                {
-                    tx.Abort();
-                    this.log.LogError(EventIds.MessageFailed, x, "Error dispatching message [{MessageLookupId}]", msg.LookupId);
-                }
-            }
+                    return ValueTask.CompletedTask;
+                });
         }
         catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
         {
@@ -350,6 +374,36 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         }
     }
 
+    private async Task ProcessInvalidAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            this.log.LogInformation(EventIds.DispatchingStarted, "Processing invalid messages started");
+
+            using var invalidQ = this.mq.CreateReader(this.Endpoint.InvalidMessageQueue ?? this.Endpoint.ApplicationQueue.GetSubqueueName(InvalidSubqueueName));
+            using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
+
+            await Parallel.ForEachAsync(invalidQ.ReadAllAsync(MessageProperties | this.ReadProperties, cancellationToken), CreateParallelOptions<IRequest>(cancellationToken),
+                (message, _) =>
+                {
+                    this.log.LogWarning(EventIds.MessageRejected, "Rejected message <{MessageId}>[{MessageLookupId}]",
+                        message.Id, message.LookupId);
+
+                    deadLetterQ.Write(WrapPoisonMessage(message, default), QueueTransaction.SingleMessage);
+                    return ValueTask.CompletedTask;
+                });
+        }
+        catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
+        {
+            this.log.LogError(EventIds.DispatchingFailed, x, "Error processing invalid messages");
+            throw;
+        }
+        finally
+        {
+            this.log.LogInformation(EventIds.DispatchingStopped, "Processing invalid messages stopped");
+        }
+    }
+ 
     /// <summary>
     /// Gets or creates the response queue for the specified message queue name.
     /// </summary>
@@ -366,18 +420,27 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
     /// <param name="message">The message.</param>
     /// <param name="exception">The exception.</param>
     /// <returns>The poison message.</returns>
-    protected static Message WrapPoisonMessage(in Message message, Exception exception)
+    protected static Message WrapPoisonMessage(in Message message, Exception? exception)
     {
-        var errorMessage = exception.Message;
-        if (errorMessage.Length > Message.MaxLabelLength)
+        if (exception is not null)
         {
-            errorMessage = errorMessage[..Message.MaxLabelLength];
+            var errorMessage = exception.Message;
+            if (errorMessage.Length > Message.MaxLabelLength)
+            {
+                errorMessage = errorMessage[..Message.MaxLabelLength];
+            }
+
+            return new Message(Encoding.Unicode.GetBytes(exception.ToString()), JsonSerializer.SerializeToUtf8Bytes(message))
+            {
+                BodyType = MessageBodyType.UnicodeString,
+                Label = errorMessage,
+            };
         }
 
-        return new Message(Encoding.Unicode.GetBytes(exception.ToString()), JsonSerializer.SerializeToUtf8Bytes(message))
+        return new Message(Encoding.Unicode.GetBytes(JsonSerializer.Serialize(message)))
         {
             BodyType = MessageBodyType.UnicodeString,
-            Label = errorMessage,
+            Label = message.Label,
         };
     }
 

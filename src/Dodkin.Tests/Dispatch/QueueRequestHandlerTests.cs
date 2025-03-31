@@ -1,11 +1,9 @@
 ﻿namespace Dodkin.Tests.Dispatch;
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Message = Dodkin.Message;
 
 #nullable disable
 
@@ -54,7 +52,7 @@ public class QueueRequestHandlerTests
     [TestMethod]
     public async Task ProcessAsync_Query_ResultReceived()
     {
-        var result = await requestDispatcher.RunAsync(new TestQuery());
+        var result = await requestDispatcher.RunAsync(new TestQuery(3));
         Assert.IsNotNull(result);
         Assert.AreEqual("Hello", result);
     }
@@ -75,5 +73,119 @@ public class QueueRequestHandlerTests
         cancelSource.Cancel();
         await Task.Delay(100);
         Assert.IsTrue(processingTask.IsCompleted);
+    }
+
+    [TestMethod]
+    public async Task DispatchRequestsAsync_Command_DispatchedToCommandSubqueue()
+    {
+        var command = new TestCommand(7);
+        await requestDispatcher.ExecuteAsync(command);
+
+        await Task.Delay(500); // Allow time for dispatching
+
+        Assert.AreEqual(7, (requestHandler.ExecutedCommand as TestCommand)?.Parameter);
+    }
+
+    [TestMethod]
+    public async Task DispatchRequestsAsync_Query_DispatchedToQuerySubqueue()
+    {
+        var query = new TestQuery(7);
+        var result = await requestDispatcher.RunAsync(query);
+
+        await Task.Delay(500); // Allow time for dispatching
+
+        Assert.AreEqual(7, (requestHandler.RunQuery as TestQuery).Parameter);
+    }
+
+    [TestMethod]
+    public async Task DispatchRequestsAsync_UnknownRequest_Rejected()
+    {
+        using var message = new Message("Unknown"u8.ToArray())
+        {
+            Acknowledgment = MessageAcknowledgment.FullReceive,
+            AdministrationQueue = dispatcherME.AdministrationQueue,
+            ResponseQueue = dispatcherME.ApplicationQueue,
+        };
+        using var appQ = MessageQueueFactory.Instance.CreateWriter(handlerME.ApplicationQueue);
+        appQ.Write(message, QueueTransaction.SingleMessage);
+
+        await Task.Delay(500); // Allow time for dispatching
+
+        // Assert
+        using var adminQ = MessageQueueFactory.Instance.CreateReader(dispatcherME.AdministrationQueue);
+        using var ack = await adminQ.ReadAsync(message.Id, MessageProperty.Class, TimeSpan.FromSeconds(1));
+        Assert.AreEqual(MessageClass.NackReceiveRejected, ack.Class);
+    }
+
+    //[TestMethod]
+    public async Task DispatchRequestsAsync_UnknownRequest_CanDispatchRequestTrue_Rejected()
+    {
+        using var message = new Message("Unknown"u8.ToArray())
+        {
+            Acknowledgment = MessageAcknowledgment.FullReceive,
+            AdministrationQueue = dispatcherME.AdministrationQueue,
+            ResponseQueue = dispatcherME.ApplicationQueue,
+        };
+
+        requestHandler.CanDispatchRequestResult = true;
+        requestHandler.TryDispatchRequestResult = true;
+        using var appQ = MessageQueueFactory.Instance.CreateWriter(handlerME.ApplicationQueue);
+        appQ.Write(message, QueueTransaction.SingleMessage);
+
+        await Task.Delay(500); // Allow time for dispatching
+
+        // Assert
+        using var adminQ = MessageQueueFactory.Instance.CreateReader(dispatcherME.AdministrationQueue);
+        using var ack = await adminQ.ReadAsync(message.Id, MessageProperty.Class, TimeSpan.FromSeconds(1));
+        requestHandler.CanDispatchRequestResult = false;
+        requestHandler.TryDispatchRequestResult = false;
+
+        Assert.AreEqual(MessageClass.NackReceiveRejected, ack.Class);
+    }
+
+    [TestMethod]
+    public async Task DispatchRequestsAsync_CanDispatchRequestTrueTryDispatchRequestFalse_DeferredToRequestSubqueue()
+    {
+        using var message = new Message("Unknown"u8.ToArray())
+        {
+            Acknowledgment = MessageAcknowledgment.FullReceive,
+            AdministrationQueue = dispatcherME.AdministrationQueue,
+            ResponseQueue = dispatcherME.ApplicationQueue,
+        };
+
+        requestHandler.CanDispatchRequestResult = true;
+        requestHandler.TryDispatchRequestResult = false;
+        using var appQ = MessageQueueFactory.Instance.CreateWriter(handlerME.ApplicationQueue);
+        appQ.Write(message, QueueTransaction.SingleMessage);
+
+        await Task.Delay(500); // Allow time for dispatching
+
+        // Assert
+        using var reqQ = MessageQueueFactory.Instance.CreateReader(handlerME.ApplicationQueue.GetSubqueueName("requests"));
+        using var dispatchedMessage = reqQ.Read(MessageProperty.All, TimeSpan.FromSeconds(1));
+        requestHandler.CanDispatchRequestResult = false;
+        requestHandler.TryDispatchRequestResult = false;
+
+        Assert.AreEqual(message.Id, dispatchedMessage.Id);
+    }
+
+    [TestMethod]
+    public async Task DispatchRequestsAsync_Exception_MessageFailed()
+    {
+        // Arrange
+        requestHandler.CanDispatchRequestResult = true;
+        requestHandler.ThrowException = true;
+        await Assert.ThrowsExceptionAsync<TimeoutException>(async () => await requestDispatcher.RunAsync(new TestQuery(9)));
+
+        // Act
+        await Task.Delay(500); // Allow time for dispatching
+
+        // Assert
+        using var dlQ = MessageQueueFactory.Instance.CreateReader(handlerME.DeadLetterQueue);
+        using var deadLetter = dlQ.Read(MessageProperty.All, TimeSpan.FromSeconds(1));
+        requestHandler.ThrowException = false;
+        requestHandler.CanDispatchRequestResult = false;
+
+        Assert.AreEqual("TestQuery", deadLetter.Label);
     }
 }
