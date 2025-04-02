@@ -243,7 +243,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                     }
 
                     return ValueTask.CompletedTask;
-                });
+                }).ConfigureAwait(false);
         }
         catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
         {
@@ -285,7 +285,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                     try
                     {
                         using var request = ReadRequest(message, cancellationToken);
-                        await ExecuteCommandAsync(request.GetCommand());
+                        await ExecuteCommandAsync(request.GetCommand()).ConfigureAwait(false);
                         this.log.LogInformation(EventIds.CommandExecuted, "Executed command <{MessageId}>[{MessageLookupId}]",
                             message.Id, message.LookupId);
                     }
@@ -306,7 +306,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                             message.Id, message.LookupId);
                         deadLetterQ.Write(WrapPoisonMessage(message, x), QueueTransaction.SingleMessage);
                     }
-                });
+                }).ConfigureAwait(false);
         }
         catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
         {
@@ -334,7 +334,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                     try
                     {
                         using var request = ReadRequest(message, cancellationToken);
-                        var result = await RunQueryAsync(request.GetQuery());
+                        var result = await RunQueryAsync(request.GetQuery()).ConfigureAwait(false);
                         this.log.LogInformation(EventIds.QueryExecuted, "Executed query <{MessageId}>[{MessageLookupId}]",
                             message.Id, message.LookupId);
 
@@ -361,7 +361,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                             message.Id, message.LookupId);
                         deadLetterQ.Write(WrapPoisonMessage(message, x), QueueTransaction.SingleMessage);
                     }
-                });
+                }).ConfigureAwait(false);
         }
         catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
         {
@@ -391,7 +391,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
 
                     deadLetterQ.Write(WrapPoisonMessage(message, default), QueueTransaction.SingleMessage);
                     return ValueTask.CompletedTask;
-                });
+                }).ConfigureAwait(false);
         }
         catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
         {

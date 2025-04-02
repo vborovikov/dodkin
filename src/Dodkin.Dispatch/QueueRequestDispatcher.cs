@@ -139,7 +139,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
             message.Label = label;
         }
 
-        await ExecuteWaitAsync(message, MessageClass.AckReceive, timeout, command.CancellationToken);
+        await ExecuteWaitAsync(message, MessageClass.AckReceive, timeout, command.CancellationToken).ConfigureAwait(false);
     }
 
     private async Task ExecuteWaitAsync<TCommand>(TCommand command, TimeSpan? timeout) where TCommand : ICommand
@@ -154,7 +154,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
             expectedAck = MessageClass.AckReceive;
         }
 
-        await ExecuteWaitAsync(message, expectedAck, timeout, command.CancellationToken);
+        await ExecuteWaitAsync(message, expectedAck, timeout, command.CancellationToken).ConfigureAwait(false);
     }
 
     private async Task ExecuteWaitAsync(Message message, MessageClass expectedAck, TimeSpan? timeout, CancellationToken cancellationToken)
@@ -166,7 +166,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
             this.log.LogInformation(EventIds.CommandSent, "Sent command <{MessageId}> for execution", message.Id);
 
             // check the status
-            await EnsureMessageReceivedAsync(message.Id, expectedAck, timeout, cancellationToken);
+            await EnsureMessageReceivedAsync(message.Id, expectedAck, timeout, cancellationToken).ConfigureAwait(false);
             this.log.LogInformation(EventIds.CommandConfirmed, "Confirmed command <{MessageId}> received for execution", message.Id);
         }
         catch (TimeoutException x)
@@ -193,12 +193,12 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
             this.requestQ.Write(message, QueueTransaction.SingleMessage);
             this.log.LogInformation(EventIds.QuerySent, "Sent query <{MessageId}> for execution", message.Id);
 
-            await EnsureMessageReceivedAsync(message.Id, MessageClass.AckReceive, timeout, query.CancellationToken);
+            await EnsureMessageReceivedAsync(message.Id, MessageClass.AckReceive, timeout, query.CancellationToken).ConfigureAwait(false);
             this.log.LogInformation(EventIds.QueryConfirmed, "Confirmed query <{MessageId}> received for execution", message.Id);
 
             // receive the response
             using var resultMsg = await this.responseQ.ReadAsync(message.Id, MessageProperties,
-                timeout ?? this.Timeout, query.CancellationToken);
+                timeout ?? this.Timeout, query.CancellationToken).ConfigureAwait(false);
             this.log.LogInformation(EventIds.ResultReceived, "Received query <{MessageId}> result", message.Id);
 
             return Read<TResult>(resultMsg);
@@ -218,7 +218,7 @@ public class QueueRequestDispatcher : QueueOperator, IQueueRequestDispatcher, IQ
     private async Task EnsureMessageReceivedAsync(MessageId messageId, MessageClass expectedAck, TimeSpan? timeout, CancellationToken cancellationToken)
     {
         var ack = await this.adminQ.ReadAsync(messageId, MessageProperty.Class,
-            timeout ?? this.Timeout, cancellationToken);
+            timeout ?? this.Timeout, cancellationToken).ConfigureAwait(false);
         this.log.LogDebug(EventIds.MessageAckNack, "Received message <{MessageId}> ack/nack: {AckClass}", messageId, ack.Class);
 
         if (ack.IsEmpty || ack.Class != expectedAck)

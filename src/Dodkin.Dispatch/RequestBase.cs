@@ -73,7 +73,7 @@ public static class RequestDispatcherExtensions
     {
         try
         {
-            return await requestDispatcher.RunAsync(new ServiceStatusQuery());
+            return await requestDispatcher.RunAsync(new ServiceStatusQuery()).ConfigureAwait(false);
         }
         catch (TimeoutException)
         {
