@@ -186,7 +186,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
         {
             this.log.LogInformation(EventIds.DispatchingStarted, "Dispatching requests started");
 
-            await Parallel.ForEachAsync(appCQ.PeekAllAsync(MessageProperty.LookupId | MessageProperty.Extension | this.PeekProperties, cancellationToken), CreateParallelOptions<IRequest>(cancellationToken),
+            await Parallel.ForEachAsync(appCQ.PeekAllAsync(MessageProperty.LookupId | MessageProperty.Extension | this.PeekProperties), CreateParallelOptions<IRequest>(cancellationToken),
                 (msg, cancellationToken) =>
                 {
                     this.log.LogInformation(EventIds.MessageReceived, "Received message [{MessageLookupId}]", msg.LookupId);
@@ -236,7 +236,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
 
                         tx.Commit();
                     }
-                    catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
+                    catch (Exception x) when (x is not OperationCanceledException)
                     {
                         tx.Abort();
                         this.log.LogError(EventIds.MessageFailed, x, "Error dispatching message [{MessageLookupId}]", msg.LookupId);
@@ -245,7 +245,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                     return ValueTask.CompletedTask;
                 }).ConfigureAwait(false);
         }
-        catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
+        catch (Exception x) when (x is not OperationCanceledException)
         {
             this.log.LogError(EventIds.DispatchingFailed, x, "Error dispatching messages");
             throw;
@@ -279,7 +279,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             using var commandQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(CommandSubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
-            await Parallel.ForEachAsync(commandQ.ReadAllAsync(MessageProperties | this.ReadProperties, cancellationToken), CreateParallelOptions<ICommand>(cancellationToken),
+            await Parallel.ForEachAsync(commandQ.ReadAllAsync(MessageProperties | this.ReadProperties), CreateParallelOptions<ICommand>(cancellationToken),
                 async (message, cancellationToken) =>
                 {
                     try
@@ -289,7 +289,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                         this.log.LogInformation(EventIds.CommandExecuted, "Executed command <{MessageId}>[{MessageLookupId}]",
                             message.Id, message.LookupId);
                     }
-                    catch (OperationCanceledException x) when (x.CancellationToken != cancellationToken)
+                    catch (OperationCanceledException x) when (!cancellationToken.IsCancellationRequested)
                     {
                         this.log.LogWarning(EventIds.CommandExecutionCancelled, x, "Command <{MessageId}>[{MessageLookupId}] cancelled",
                             message.Id, message.LookupId);
@@ -308,7 +308,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                     }
                 }).ConfigureAwait(false);
         }
-        catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
+        catch (Exception x) when (x is not OperationCanceledException)
         {
             this.log.LogError(EventIds.DispatchingFailed, x, "Error processing commands");
             throw;
@@ -328,7 +328,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             using var queryQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(QuerySubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
-            await Parallel.ForEachAsync(queryQ.ReadAllAsync(MessageProperties | this.ReadProperties, cancellationToken), CreateParallelOptions<IQuery>(cancellationToken),
+            await Parallel.ForEachAsync(queryQ.ReadAllAsync(MessageProperties | this.ReadProperties), CreateParallelOptions<IQuery>(cancellationToken),
                 async (message, cancellationToken) =>
                 {
                     try
@@ -344,7 +344,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                         this.log.LogInformation(EventIds.QueryResultSent, "Sent query <{MessageId}>[{MessageLookupId}] result",
                             message.Id, message.LookupId);
                     }
-                    catch (OperationCanceledException x) when (x.CancellationToken != cancellationToken)
+                    catch (OperationCanceledException x) when (!cancellationToken.IsCancellationRequested)
                     {
                         this.log.LogWarning(EventIds.QueryExecutionCancelled, x, "Query <{MessageId}>[{MessageLookupId}] cancelled",
                             message.Id, message.LookupId);
@@ -363,7 +363,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                     }
                 }).ConfigureAwait(false);
         }
-        catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
+        catch (Exception x) when (x is not OperationCanceledException)
         {
             this.log.LogError(EventIds.DispatchingFailed, x, "Error processing queries");
             throw;
@@ -383,7 +383,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
             using var invalidQ = this.mq.CreateReader(this.Endpoint.InvalidMessageQueue ?? this.Endpoint.ApplicationQueue.GetSubqueueName(InvalidSubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
-            await Parallel.ForEachAsync(invalidQ.ReadAllAsync(MessageProperties | this.ReadProperties, cancellationToken), CreateParallelOptions<IRequest>(cancellationToken),
+            await Parallel.ForEachAsync(invalidQ.ReadAllAsync(MessageProperties | this.ReadProperties), CreateParallelOptions<IRequest>(cancellationToken),
                 (message, _) =>
                 {
                     this.log.LogWarning(EventIds.MessageRejected, "Rejected invalid request <{MessageId}>[{MessageLookupId}]",
@@ -393,7 +393,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                     return ValueTask.CompletedTask;
                 }).ConfigureAwait(false);
         }
-        catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
+        catch (Exception x) when (x is not OperationCanceledException)
         {
             this.log.LogError(EventIds.DispatchingFailed, x, "Error processing invalid requests");
             throw;

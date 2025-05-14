@@ -55,7 +55,7 @@ sealed class Messenger : QueueRequestHandler
             using var serviceQ = this.mq.CreateReader(this.Endpoint.ApplicationQueue.GetSubqueueName(RequestSubqueueName));
             using var deadLetterQ = this.mq.CreateWriter(this.Endpoint.DeadLetterQueue);
 
-            await Parallel.ForEachAsync(serviceQ.ReadAllAsync(MessageRecord.AllProperties, stoppingToken), CreateParallelOptions<ICommand>(stoppingToken),
+            await Parallel.ForEachAsync(serviceQ.ReadAllAsync(MessageRecord.AllProperties), CreateParallelOptions<ICommand>(stoppingToken),
                 async (message, cancellationToken) =>
                 {
                     try
@@ -81,7 +81,7 @@ sealed class Messenger : QueueRequestHandler
                     }
                 });
         }
-        catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != stoppingToken)
+        catch (Exception x) when (x is not OperationCanceledException)
         {
             this.log.LogError(EventIds.Receiving, x, "Failed receiving messages");
             throw;
@@ -108,6 +108,8 @@ sealed class Messenger : QueueRequestHandler
 
             while (true)
             {
+                stoppingToken.ThrowIfCancellationRequested();
+
                 // get the current message from the db
                 var messageRecord = await this.db.GetAsync(stoppingToken);
                 if (messageRecord is null)
@@ -196,8 +198,7 @@ sealed class Messenger : QueueRequestHandler
                 }
             }
         }
-        catch (Exception x) when (x is not OperationCanceledException ocx ||
-            (ocx.CancellationToken != default && ocx.CancellationToken != stoppingToken))
+        catch (Exception x) when (x is not OperationCanceledException)
         {
             this.log.LogError(EventIds.Sending, x, "Failed sending messages");
             throw;

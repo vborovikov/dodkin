@@ -14,7 +14,7 @@ public class MessageQueueTests
     [ClassInitialize]
     public static void ClassInitialize(TestContext context)
     {
-        MessageQueue.Create(testQueueName);
+        MessageQueue.TryCreate(testQueueName);
     }
 
     [ClassCleanup]

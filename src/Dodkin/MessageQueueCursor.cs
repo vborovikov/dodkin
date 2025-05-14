@@ -69,16 +69,14 @@
         }
 
         private async IAsyncEnumerable<Message> InternalPeekAllAsync(MessageProperty propertyFlags,
-            CancellationToken cancellationToken, [EnumeratorCancellation] CancellationToken enumeratorCancellationToken = default)
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, enumeratorCancellationToken);
-
             for (var peekAction = ReceiveAction.PeekCurrent; ; peekAction = ReceiveAction.PeekNext)
             {
                 // creating message properties in a loop to enable concurrent enumeration
 
                 var messageProperties = new MessageProperties(propertyFlags);
-                var message = await this.reader.ReceiveAsync(this.cursorHandle, peekAction, messageProperties, null, cts.Token).ConfigureAwait(false);
+                var message = await this.reader.ReceiveAsync(this.cursorHandle, peekAction, messageProperties, null, cancellationToken).ConfigureAwait(false);
                 yield return message;
             }
         }

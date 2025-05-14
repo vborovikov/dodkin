@@ -142,7 +142,7 @@ sealed class MessageStore : IMessageStore
                 // no throw
             }
         }
-        catch (Exception x) when (x is not OperationCanceledException ocx || ocx.CancellationToken != cancellationToken)
+        catch (Exception x) when (x is not OperationCanceledException)
         {
             this.log.LogWarning(x, "Failed to roll back from retrying message {MessageId}.", messageId);
             // no throw

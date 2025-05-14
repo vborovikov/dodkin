@@ -2,6 +2,7 @@
 
 using System.Data.Common;
 using System.Text.Json;
+using System.Threading;
 using Dodkin.Service;
 using Dodkin.Service.Data;
 using Dodkin.Service.Delivery;
@@ -45,14 +46,10 @@ public class DeliveryTests
             builder.AddConsole();
             builder.AddDebug();
         });
-        dataSource = SqlClientFactory.Instance.CreateDataSource(@"Data Source=(LocalDB)\SqlLocalDB15;Initial Catalog=Dodkin;Integrated Security=SSPI;");
+        dataSource = SqlClientFactory.Instance.CreateDataSource(@"Data Source=(LocalDB)\MSSqlLocalDB;Initial Catalog=Dodkin;Integrated Security=SSPI;");
         handler = new RequestHandler(dataSource, logger.CreateLogger<RequestHandler>());
         messenger = new Messenger(new WorkerOptions(), MessageQueueFactory.Instance,
-            new MessageStore(
-                SqlClientFactory.Instance.CreateDataSource(@"Data Source=(LocalDB)\SqlLocalDB15;Initial Catalog=Dodkin;Integrated Security=SSPI;"),
-                Options.Create(new ServiceOptions()),
-                logger.CreateLogger<MessageStore>()),
-            handler, logger.CreateLogger<Messenger>());
+            new InMemoryMessageStore(), handler, logger.CreateLogger<Messenger>());
         worker = new Worker(messenger, logger.CreateLogger<Worker>());
 
         await worker.StartAsync(default);
@@ -121,5 +118,45 @@ public class DeliveryTests
         using var ack = await adminQ.ReadAsync(message.Id, MessageProperty.Class);
 
         Assert.AreEqual(MessageClass.NackReceiveRejected, ack.Class);
+    }
+
+    private class InMemoryMessageStore : IMessageStore
+    {
+        private readonly List<MessageRecord> messages = [];
+
+        public Task AddAsync(MessageRecord message, CancellationToken cancellationToken)
+        {
+            this.messages.Add(message);
+            return Task.CompletedTask;
+        }
+
+        public Task<MessageRecord> GetAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(this.messages.MinBy(mr => mr.DueTime)!);
+        }
+
+        public Task PurgeAsync(CancellationToken cancellationToken)
+        {
+            this.messages.Clear();
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveAsync(MessageId messageId, CancellationToken cancellationToken)
+        {
+            this.messages.RemoveAll(m => m.MessageId == messageId);
+            return Task.CompletedTask;
+        }
+
+        public Task RetryAsync(MessageId messageId, CancellationToken cancellationToken)
+        {
+            var mr = this.messages.Find(m => m.MessageId == messageId);
+            if (mr is not null)
+            {
+                this.messages.Remove(mr);
+                mr = mr with { RetryCount = mr.RetryCount + 1 };
+                this.messages.Add(mr);
+            }
+            return Task.CompletedTask;
+        }
     }
 }

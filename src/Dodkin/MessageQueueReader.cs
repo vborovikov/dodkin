@@ -124,16 +124,14 @@
 
         internal async IAsyncEnumerable<Message> InternalReceiveAllAsync(
             QueueCursorHandle cursorHandle, MessageProperty propertyFlags,
-            CancellationToken cancellationToken, [EnumeratorCancellation] CancellationToken enumeratorCancellationToken = default)
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, enumeratorCancellationToken);
-
             while (true)
             {
                 // creating message properties in a loop to enable concurrent enumeration
 
                 var messageProperties = new MessageProperties(propertyFlags);
-                var message = await ReceiveAsync(cursorHandle, ReceiveAction.Receive, messageProperties, null, cts.Token).ConfigureAwait(false);
+                var message = await ReceiveAsync(cursorHandle, ReceiveAction.Receive, messageProperties, null, cancellationToken).ConfigureAwait(false);
                 yield return message;
             }
         }
