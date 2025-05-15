@@ -216,7 +216,7 @@ public class QueueRequestHandler : QueueOperator, IRequestDispatcher
                         }
                         else
                         {
-                            var requestType = FindBodyType(msg);
+                            var requestType = FindBodyType(msg, typeof(IRequest));
                             if (typeof(ICommand).IsAssignableFrom(requestType))
                             {
                                 appQ.Move(msg.LookupId, cmdSQ, tx);

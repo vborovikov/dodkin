@@ -144,7 +144,7 @@ public abstract class QueueOperator : IDisposable
         if (message.IsEmpty)
             throw new InvalidOperationException("The received message is empty.");
 
-        var bodyType = FindBodyType(message) ??
+        var bodyType = FindBodyType(message, typeof(T)) ??
             throw new InvalidOperationException("The message body type cannot be determined.");
         var body = JsonSerializer.Deserialize(message.Body, bodyType) ??
             throw new InvalidOperationException("The message body cannot be deserialized.");
@@ -164,7 +164,7 @@ public abstract class QueueOperator : IDisposable
     {
         if (!message.IsEmpty)
         {
-            var bodyType = FindBodyType(message);
+            var bodyType = FindBodyType(message, typeof(T));
             if (bodyType is not null)
             {
                 var body = JsonSerializer.Deserialize(message.Body, bodyType);
@@ -184,8 +184,9 @@ public abstract class QueueOperator : IDisposable
     /// Determines the type of the message body.
     /// </summary>
     /// <param name="message">The message.</param>
+    /// <param name="bodyBaseType">The message body known base type.</param>
     /// <returns>The type of the message body or <c>null</c> if the body type could not be determined.</returns>
-    protected Type? FindBodyType(in Message message)
+    protected Type? FindBodyType(in Message message, Type bodyBaseType)
     {
         var bodyTypeBuffer = message.Extension;
         if (bodyTypeBuffer.IsEmpty)
@@ -203,7 +204,7 @@ public abstract class QueueOperator : IDisposable
             bodyType =
                 this.InteractionAssembly.GetType(typeInfo.FullName, throwOnError: false) ??
                 Type.GetType(typeInfo.FullName, throwOnError: false) ??
-                FindBodyTypeByName(typeInfo.FullName);
+                FindBodyTypeByName(typeInfo.FullName, bodyBaseType);
         }
         if (bodyType is not null)
         {
@@ -214,17 +215,16 @@ public abstract class QueueOperator : IDisposable
         return null;
     }
 
-    private Type? FindBodyTypeByName(ReadOnlySpan<char> typeFullName)
+    private Type? FindBodyTypeByName(ReadOnlySpan<char> typeFullName, Type bodyBaseType)
     {
         var nameStart = typeFullName.LastIndexOf('.');
         if (nameStart <= 0)
             return null;
 
-        var requestType = typeof(IRequest);
         var typeName = typeFullName[(nameStart + 1)..];
         foreach (var exportedType in this.InteractionAssembly.GetExportedTypes())
         {
-            if (requestType.IsAssignableFrom(exportedType) && typeName.Equals(exportedType.Name, StringComparison.OrdinalIgnoreCase))
+            if (bodyBaseType.IsAssignableFrom(exportedType) && typeName.Equals(exportedType.Name, StringComparison.OrdinalIgnoreCase))
                 return exportedType;
         }
 
