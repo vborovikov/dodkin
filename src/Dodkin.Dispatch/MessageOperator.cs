@@ -7,18 +7,22 @@ using System.Reflection;
 using System.Text.Json;
 using Relay.RequestModel;
 
+/// <summary>
+/// Handles message processing, including reading message bodies and determining message types.
+/// </summary>
+/// <typeparam name="TMessage">The type of the message to operate on.</typeparam>
 public abstract class MessageOperator<TMessage> : IDisposable
     where TMessage : notnull, allows ref struct
 {
     /// <summary>
-    /// Provides the queue default operating timeout.
+    /// Provides the default operating timeout.
     /// </summary>
     protected static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
     private readonly ConcurrentDictionary<string, Type> bodyTypeCache = new();
     private Assembly? interactionAssembly;
 
     /// <summary>
-    /// Gets or sets the queue operating timeout.
+    /// Gets or sets the operating timeout.
     /// </summary>
     protected TimeSpan Timeout { get; init; }
 
@@ -39,7 +43,7 @@ public abstract class MessageOperator<TMessage> : IDisposable
     /// <summary>
     /// References the assembly that contains the recognized request types.
     /// </summary>
-    /// <param name="assembly"></param>
+    /// <param name="assembly">The assembly containing the request types to recognize.</param>
     public void RecognizeTypesFrom(Assembly assembly)
     {
         if (Interlocked.CompareExchange(ref this.interactionAssembly, assembly, null) == this.interactionAssembly &&
@@ -90,12 +94,29 @@ public abstract class MessageOperator<TMessage> : IDisposable
         return null;
     }
 
+    /// <summary>
+    /// Determines whether the message is empty.
+    /// </summary>
+    /// <param name="message">The message to check.</param>
+    /// <returns><c>true</c> if the message is empty; otherwise, <c>false</c>.</returns>
     protected abstract bool IsEmpty(in TMessage message);
+
+    /// <summary>
+    /// Gets the signature of the message.
+    /// </summary>
+    /// <param name="message">The message.</param>
+    /// <returns>The signature of the message as a read-only span of bytes.</returns>
     protected abstract ReadOnlySpan<byte> GetSignature(in TMessage message);
+
+    /// <summary>
+    /// Gets the body of the message.
+    /// </summary>
+    /// <param name="message">The message.</param>
+    /// <returns>The body of the message as a read-only span of bytes.</returns>
     protected abstract ReadOnlySpan<byte> GetBody(in TMessage message);
 
     /// <summary>
-    /// Reads the body of a <see cref="Message"/> instance.
+    /// Reads the body of a <typeparamref name="TMessage"/> instance.
     /// </summary>
     /// <typeparam name="T">The type of the message body.</typeparam>
     /// <param name="message">The message.</param>
@@ -115,7 +136,7 @@ public abstract class MessageOperator<TMessage> : IDisposable
     }
 
     /// <summary>
-    /// Tries to read the body of a <see cref="Message"/> instance.
+    /// Tries to read the body of a <typeparamref name="TMessage"/> instance.
     /// </summary>
     /// <typeparam name="T">The type of the message body.</typeparam>
     /// <param name="message">The message.</param>
