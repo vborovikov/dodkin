@@ -2,22 +2,21 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup>
     <Title>Dodkin Dispatch</Title>
-    <Description>Interprocess/internetwork request dispatcher model</Description>
-    <PackageId>Dodkin.Dispatch</PackageId>
+    <Description>Message dispatcher powered by Relay Toolkit and Dodkin MSMQ</Description>
+    <PackageId>Dodkin.Dispatch.Msmq</PackageId>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/vborovikov/dodkin</PackageProjectUrl>
     <RepositoryUrl>https://github.com/vborovikov/dodkin.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>interprocess;internetwork;cqrs</PackageTags>
+    <PackageTags>msmq;messaging;queue;cqrs</PackageTags>
     <PackageReleaseNotes></PackageReleaseNotes>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
@@ -31,7 +30,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="RelayTk" Version="2.6.3" />
+    <PackageReference Include="Dodkin" Version="0.7.0" Condition="'$(Configuration)'=='Release'" />
+    <ProjectReference Include="..\Dodkin\Dodkin.csproj" Condition="'$(Configuration)'=='Debug'" />
+    <PackageReference Include="Dodkin.Dispatch" Version="0.7.0" Condition="'$(Configuration)'=='Release'" />
+    <ProjectReference Include="..\Dodkin.Dispatch\Dodkin.Dispatch.csproj" Condition="'$(Configuration)'=='Debug'" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
   </ItemGroup>
 
 </Project>

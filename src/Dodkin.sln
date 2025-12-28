@@ -17,6 +17,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		Directory.Build.targets = Directory.Build.targets
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dodkin.Dispatch.Msmq", "Dodkin.Dispatch.Msmq\Dodkin.Dispatch.Msmq.csproj", "{C7A93516-08D5-8285-3839-44D1036F17BA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dodkin.Dispatch.Uds", "Dodkin.Dispatch.Uds\Dodkin.Dispatch.Uds.csproj", "{2A8F6F50-64CE-4944-89F3-56573D66F067}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +43,14 @@ Global
 		{D7B4D03A-F059-49F5-AFA9-C5A30ADA1A95}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D7B4D03A-F059-49F5-AFA9-C5A30ADA1A95}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D7B4D03A-F059-49F5-AFA9-C5A30ADA1A95}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7A93516-08D5-8285-3839-44D1036F17BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7A93516-08D5-8285-3839-44D1036F17BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7A93516-08D5-8285-3839-44D1036F17BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7A93516-08D5-8285-3839-44D1036F17BA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2A8F6F50-64CE-4944-89F3-56573D66F067}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2A8F6F50-64CE-4944-89F3-56573D66F067}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2A8F6F50-64CE-4944-89F3-56573D66F067}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2A8F6F50-64CE-4944-89F3-56573D66F067}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

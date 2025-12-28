@@ -32,6 +32,6 @@ public class QueueOperatorTests
     {
         var d = new QueueRequestDispatcher(MessageQueueName.FromName("test-queue"), endpoint, NullLogger.Instance);
         d.RecognizeTypesFrom(Assembly.GetExecutingAssembly());
-        Assert.ThrowsException<InvalidOperationException>(() => d.RecognizeTypesFrom(typeof(ServiceStatusQuery).Assembly));
+        Assert.Throws<InvalidOperationException>(() => d.RecognizeTypesFrom(typeof(ServiceStatusQuery).Assembly));
     }
 }

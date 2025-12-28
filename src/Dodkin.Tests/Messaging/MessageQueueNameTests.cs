@@ -101,7 +101,7 @@ public class MessageQueueNameTests
     [DataRow("DIRECT=OS:")]
     public void FromFormatName_InvalidFormatName_ThrowsFormatException(string formatName)
     {
-        Assert.ThrowsException<FormatException>(() => MessageQueueName.Parse(formatName));
+        Assert.Throws<FormatException>(() => MessageQueueName.Parse(formatName));
     }
 
     [DataTestMethod]
@@ -152,7 +152,7 @@ public class MessageQueueNameTests
         // Arrange
 
         // Act & Assert
-        Assert.ThrowsException<FormatException>(() => MessageQueueName.Parse(input));
+        Assert.Throws<FormatException>(() => MessageQueueName.Parse(input));
     }
 
     [TestMethod]
