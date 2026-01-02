@@ -108,7 +108,7 @@ internal class UdsTestRequestHandler : UdsRequestHandler,
 [TestClass]
 public class UdsTests
 {
-    private const int MaxConnections = 8;
+    private const int MaxConnections = 10;
 
     private static ILoggerFactory loggerFactory;
     private readonly ILogger<UdsTestRequestHandler> handlerLogger = loggerFactory.CreateLogger<UdsTestRequestHandler>();
@@ -563,6 +563,9 @@ public class UdsTests
         var socketPath = Path.GetTempFileName() + ".sock";
         try
         {
+            using var handler = new UdsTestRequestHandler(socketPath, handlerLogger);
+            var handlerTask = Task.Run(() => handler.ProcessAsync(CancellationToken.None));
+
             using var pool = new UdsConnectionPool(socketPath, 2); // Max 2 connections
             // Test that we can get 2 connections without blocking
             var conn1 = await pool.ConnectAsync(CancellationToken.None);
@@ -693,15 +696,7 @@ public class UdsTests
             var handlerTask = Task.Run(() => handler.ProcessAsync(CancellationToken.None));
 
             using var dispatcher = new UdsRequestDispatcher(socketPath, dispatcherLogger);
-
-            // Execute multiple commands concurrently
-            var tasks = new List<Task>();
-            for (int i = 0; i < MaxConnections; i++)
-            {
-                tasks.Add(dispatcher.ExecuteAsync(new UdsTestCommand(i)));
-            }
-
-            await Task.WhenAll(tasks);
+            await Parallel.ForAsync(0, MaxConnections, async (i, _) => await dispatcher.ExecuteAsync(new UdsTestCommand(i)));
 
             // Test passed if no exception was thrown
             Assert.IsTrue(true);
@@ -828,6 +823,9 @@ public class UdsTests
         var socketPath = Path.GetTempFileName() + ".sock";
         try
         {
+            using var handler = new UdsTestRequestHandler(socketPath, handlerLogger);
+            var handlerTask = Task.Run(() => handler.ProcessAsync(CancellationToken.None));
+
             using var pool = new UdsConnectionPool(socketPath, 2);
 
             // Get a connection
@@ -862,6 +860,8 @@ public class UdsTests
 
         try
         {
+            using var handler = new UdsTestRequestHandler(socketPath, handlerLogger);
+            var handlerTask = Task.Run(() => handler.ProcessAsync(CancellationToken.None));
             pool = new UdsConnectionPool(socketPath, 2);
 
             // Get a few connections

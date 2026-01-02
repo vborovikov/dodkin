@@ -30,7 +30,7 @@ public class UdsRequestHandler : UdsOperator, IRequestDispatcher
             File.Delete(socketPath);
         }
 
-        this.socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
+        this.socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         this.socket.Bind(this.Endpoint);
         this.socket.Listen(MaxConnections);
     }

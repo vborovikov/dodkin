@@ -37,7 +37,7 @@ sealed class UdsConnectionPool : IDisposable
         await this.isConnecting.WaitAsync(cancellationToken);
         if (!this.pool.TryDequeue(out var socket))
         {
-            socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
+            socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
             await socket.ConnectAsync(new UnixDomainSocketEndPoint(this.endpointPath), cancellationToken);
         }
 

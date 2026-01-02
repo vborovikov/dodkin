@@ -70,6 +70,7 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
         }
         catch (OperationCanceledException x) when (timeoutCts.IsCancellationRequested)
         {
+            this.log.LogWarning(EventIds.CommandTimedOut, x, "Executing command timed out");
             throw new TimeoutException("Timeout", x);
         }
         catch (Exception x) when (x is not OperationCanceledException)
@@ -116,6 +117,7 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
         }
         catch (OperationCanceledException x) when (timeoutCts.IsCancellationRequested)
         {
+            this.log.LogWarning(EventIds.QueryTimedOut, x, "Executing query timed out");
             throw new TimeoutException("Timeout", x);
         }
         catch (Exception x) when (x is not OperationCanceledException)
