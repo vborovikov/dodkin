@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Dodkin.Dispatch.Msmq\Dodkin.Dispatch.Msmq.csproj" />
+    <ProjectReference Include="..\Dodkin.Dispatch.Uds\Dodkin.Dispatch.Uds.csproj" />
     <ProjectReference Include="..\Dodkin.Dispatch\Dodkin.Dispatch.csproj" />
     <ProjectReference Include="..\Dodkin.Service\Dodkin.Service.csproj" />
     <ProjectReference Include="..\Dodkin\Dodkin.csproj" />
