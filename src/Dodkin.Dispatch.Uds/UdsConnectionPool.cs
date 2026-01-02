@@ -2,18 +2,19 @@ namespace Dodkin.Dispatch;
 
 using System.Collections.Concurrent;
 using System.Net.Sockets;
+using System.Threading.Tasks;
 
 sealed class UdsConnectionPool : IDisposable
 {
     private readonly ConcurrentQueue<Socket> pool;
     private readonly SemaphoreSlim isConnecting;
-    private readonly string endpointPath;
+    private readonly UnixDomainSocketEndPoint endpoint;
     private bool isDisposed;
 
     public UdsConnectionPool(string endpointPath, int maxConnections = 10)
     {
         this.pool = new();
-        this.endpointPath = endpointPath;
+        this.endpoint = new(endpointPath);
         this.isConnecting = new SemaphoreSlim(maxConnections, maxConnections);
     }
 
@@ -38,18 +39,19 @@ sealed class UdsConnectionPool : IDisposable
         if (!this.pool.TryDequeue(out var socket))
         {
             socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-            await socket.ConnectAsync(new UnixDomainSocketEndPoint(this.endpointPath), cancellationToken);
+            await socket.ConnectAsync(this.endpoint, cancellationToken);
         }
-
+        
         return socket;
     }
 
-    public void Disconnect(Socket socket)
+    public async ValueTask DisconnectAsync(Socket socket, CancellationToken cancellationToken = default)
     {
         this.isConnecting.Release();
 
         if (socket.Connected)
         {
+            await socket.DisconnectAsync(reuseSocket: true, cancellationToken);
             this.pool.Enqueue(socket);
         }
         else

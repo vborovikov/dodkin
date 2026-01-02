@@ -577,14 +577,14 @@ public class UdsTests
                 await pool.ConnectAsync(timeoutCts.Token));
 
             // Return one connection to the pool
-            pool.Disconnect(conn2);
+            await pool.DisconnectAsync(conn2);
 
             // Now we should be able to get another connection
             var conn3 = await pool.ConnectAsync(CancellationToken.None);
 
             // Clean up
-            pool.Disconnect(conn1);
-            pool.Disconnect(conn3);
+            await pool.DisconnectAsync(conn1);
+            await pool.DisconnectAsync(conn3);
         }
         finally
         {
@@ -833,14 +833,14 @@ public class UdsTests
             var connId1 = conn1.GetHashCode();
 
             // Return it to the pool
-            pool.Disconnect(conn1);
+            await pool.DisconnectAsync(conn1);
 
             // Get another connection - it might be the same one
             var conn2 = await pool.ConnectAsync(CancellationToken.None);
             var connId2 = conn2.GetHashCode();
 
             // Return it to the pool
-            pool.Disconnect(conn2);
+            await pool.DisconnectAsync(conn2);
 
             // The connections might be reused from the pool, so we just verify the flow works
             Assert.IsTrue(conn1 != null && conn2 != null);
@@ -869,8 +869,8 @@ public class UdsTests
             var conn2 = await pool.ConnectAsync(CancellationToken.None);
 
             // Put them back in the pool
-            pool.Disconnect(conn1);
-            pool.Disconnect(conn2);
+            await pool.DisconnectAsync(conn1);
+            await pool.DisconnectAsync(conn2);
 
             // Disposal should work without exceptions
             pool.Dispose();

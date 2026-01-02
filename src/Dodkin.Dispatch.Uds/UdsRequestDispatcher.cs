@@ -80,7 +80,7 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
         }
         finally
         {
-            this.connectionPool.Disconnect(socket);
+            await this.connectionPool.DisconnectAsync(socket);
         }
     }
 
@@ -127,7 +127,7 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
         }
         finally
         {
-            this.connectionPool.Disconnect(socket);
+            await this.connectionPool.DisconnectAsync(socket);
         }
     }
 }
