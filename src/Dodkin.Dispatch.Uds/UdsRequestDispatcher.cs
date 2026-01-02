@@ -56,7 +56,7 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
             await socket.SendAsync(buffer.WrittenMemory, SocketFlags.None, cancellationToken);
 
             buffer.Clear();
-            var bytesReceived = await socket.ReceiveAsync(buffer.Capacity, cancellationToken);
+            var bytesReceived = await socket.ReceiveAsync(buffer.GetMemory(), cancellationToken);
             buffer.Advance(bytesReceived);
 
             var response = buffer.WrittenSpan;
@@ -98,7 +98,7 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
             await socket.SendAsync(buffer.WrittenMemory, SocketFlags.None, cancellationToken);
 
             buffer.Clear();
-            var bytesReceived = await socket.ReceiveAsync(buffer.Capacity, cancellationToken);
+            var bytesReceived = await socket.ReceiveAsync(buffer.GetMemory(), cancellationToken);
             buffer.Advance(bytesReceived);
 
             var response = buffer.WrittenSpan;

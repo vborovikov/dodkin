@@ -2,13 +2,14 @@
 
 using System;
 using System.Buffers;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Unicode;
 
-struct Utf8MemoryBuffer : IDisposable
+class Utf8MemoryBuffer : IBufferWriter<byte>, IDisposable
 {
     private const int KByte = 1024;
-    private const int DefaultBufferSize = 32 * KByte;
+    private const int DefaultInitialBufferSize = 32 * KByte;
 
     private byte[]? buffer;
     private Memory<byte> memory;
@@ -22,7 +23,7 @@ struct Utf8MemoryBuffer : IDisposable
 
     public Utf8MemoryBuffer(IFormatProvider? provider = null)
     {
-        this.buffer = ArrayPool<byte>.Shared.Rent(DefaultBufferSize);
+        this.buffer = ArrayPool<byte>.Shared.Rent(DefaultInitialBufferSize);
         this.memory = this.buffer;
         this.provider = provider;
     }
@@ -44,27 +45,63 @@ struct Utf8MemoryBuffer : IDisposable
         }
     }
 
-    public readonly int WrittenCount => this.HasCapacity ? this.bytesWritten : this.memory.Length;
+    public int WrittenCount => this.HasCapacity ? this.bytesWritten : this.memory.Length;
 
-    public readonly ReadOnlyMemory<byte> WrittenMemory => this.memory[..this.bytesWritten];
+    public ReadOnlyMemory<byte> WrittenMemory => this.memory[..this.bytesWritten];
 
-    public readonly ReadOnlySpan<byte> WrittenSpan => this.memory.Span[..this.bytesWritten];
+    public ReadOnlySpan<byte> WrittenSpan => this.memory.Span[..this.bytesWritten];
 
-    private readonly bool CanAppend => this.bytesWritten < this.memory.Length;
+    private bool CanAppend => this.bytesWritten < this.memory.Length;
 
-    public readonly Memory<byte> Capacity => this.CanAppend ? this.memory[this.bytesWritten..] : Memory<byte>.Empty;
+    public bool HasCapacity => this.bytesWritten <= this.memory.Length;
 
-    public readonly bool HasCapacity => this.bytesWritten <= this.memory.Length;
+    public int FreeCapacity => this.memory.Length - this.bytesWritten;
 
     public void Clear()
     {
+        Debug.Assert(this.memory.Length >= this.bytesWritten);
         this.bytesWritten = 0;
     }
 
-    public bool Advance(int count)
+    public void Advance(int count)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        if (this.bytesWritten > this.memory.Length - count)
+            throw new InvalidOperationException();
+
         this.bytesWritten += count;
-        return this.CanAppend;
+    }
+
+    public Memory<byte> GetMemory(int sizeHint = 0)
+    {
+        CheckAndResizeBuffer(sizeHint);
+
+        if (this.CanAppend)
+        {
+            var bytesAvailable = this.memory.Length - this.bytesWritten;
+            if (sizeHint == 0 || bytesAvailable >= sizeHint)
+            {
+                return this.memory[this.bytesWritten..];
+            }
+        }
+
+        return Memory<byte>.Empty;
+    }
+
+    public Span<byte> GetSpan(int sizeHint = 0)
+    {
+        CheckAndResizeBuffer(sizeHint);
+
+        if (this.CanAppend)
+        {
+            var bytesAvailable = this.memory.Length - this.bytesWritten;
+            if (sizeHint == 0 || bytesAvailable >= sizeHint)
+            {
+                return this.memory.Span[this.bytesWritten..];
+            }
+        }
+
+        return [];
     }
 
     public bool TryAppend(char ch)
@@ -115,49 +152,63 @@ struct Utf8MemoryBuffer : IDisposable
         if (!this.CanAppend)
             return false;
 
-        var bufferWriter = new Utf8MemoryWriter(this.Capacity);
-        using var jsonWriter = new Utf8JsonWriter(bufferWriter);
+        using var jsonWriter = new Utf8JsonWriter(this);
         JsonSerializer.Serialize(jsonWriter, value, value.GetType());
         jsonWriter.Flush();
 
-        return Advance(bufferWriter.BytesWritten);
-    }
-}
-
-file sealed class Utf8MemoryWriter : IBufferWriter<byte>
-{
-    private readonly Memory<byte> memory;
-    private int bytesWritten;
-
-    public Utf8MemoryWriter(Memory<byte> memory)
-    {
-        this.memory = memory;
+        return this.CanAppend;
     }
 
-    public bool HasCapacity => this.bytesWritten <= this.memory.Length;
-
-    public int BytesWritten => this.HasCapacity ? this.bytesWritten : this.memory.Length;
-
-    private bool CanAppend => this.bytesWritten < this.memory.Length;
-
-    public void Advance(int count)
+    private void CheckAndResizeBuffer(int sizeHint)
     {
-        this.bytesWritten += count;
-    }
+        ArgumentOutOfRangeException.ThrowIfNegative(sizeHint);
 
-    public Memory<byte> GetMemory(int sizeHint = 0)
-    {
-        if (this.CanAppend)
+        if (sizeHint == 0)
         {
-            var bytesAvailable = this.memory.Length - this.bytesWritten;
-            if (sizeHint == 0 || bytesAvailable >= sizeHint)
+            sizeHint = 1;
+        }
+
+        if (sizeHint > this.FreeCapacity && this.buffer is not null)
+        {
+            var currentLength = this.buffer.Length;
+
+            // Attempt to grow by the larger of the sizeHint and double the current size.
+            var growBy = Math.Max(sizeHint, currentLength);
+
+            if (currentLength == 0)
             {
-                return this.memory[this.bytesWritten..];
+                growBy = Math.Max(growBy, DefaultInitialBufferSize);
+            }
+
+            var newSize = currentLength + growBy;
+
+            if ((uint)newSize > int.MaxValue)
+            {
+                // Attempt to grow to Array.MaxLength.
+                var needed = (uint)(currentLength - this.FreeCapacity + sizeHint);
+                Debug.Assert(needed > currentLength);
+
+                if (needed > Array.MaxLength)
+                {
+                    throw new OutOfMemoryException();
+                }
+
+                newSize = Array.MaxLength;
+            }
+
+            var newBuffer = ArrayPool<byte>.Shared.Rent(newSize);
+            Array.Copy(this.buffer, newBuffer, this.buffer.Length);
+
+            var oldBuffer = this.buffer;
+            this.buffer = newBuffer;
+            this.memory = this.buffer;
+
+            if (oldBuffer is not null)
+            {
+                ArrayPool<byte>.Shared.Return(oldBuffer);
             }
         }
 
-        return Memory<byte>.Empty;
+        Debug.Assert(this.FreeCapacity > 0 && this.FreeCapacity >= sizeHint);
     }
-
-    public Span<byte> GetSpan(int sizeHint = 0) => GetMemory(sizeHint).Span;
 }

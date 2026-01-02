@@ -59,7 +59,7 @@ public class UdsRequestHandler : UdsOperator, IRequestDispatcher
                 using var buffer = new Utf8MemoryBuffer();
                 try
                 {
-                    var bytesReceived = await client.ReceiveAsync(buffer.Capacity, cancellationToken).ConfigureAwait(false);
+                    var bytesReceived = await client.ReceiveAsync(buffer.GetMemory(), cancellationToken).ConfigureAwait(false);
                     if (bytesReceived <= 0)
                     {
                         this.log.LogWarning(EventIds.MessageFailed, "Encountered empty message");
