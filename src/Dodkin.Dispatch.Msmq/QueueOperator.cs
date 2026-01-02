@@ -1,6 +1,7 @@
 ﻿namespace Dodkin.Dispatch;
 
 using System;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
@@ -49,7 +50,7 @@ public abstract class QueueOperator : MessageOperator<Message>
     {
         var bodyType = body.GetType();
         var message = new Message(JsonSerializer.SerializeToUtf8Bytes(body),
-            JsonSerializer.SerializeToUtf8Bytes(bodyType.AssemblyQualifiedName))
+            Encoding.UTF8.GetBytes(bodyType.AssemblyQualifiedName ?? string.Empty))
         {
             CorrelationId = corellationId,
             Label = bodyType.Name,

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using Relay.RequestModel;
 
@@ -71,7 +72,7 @@ public abstract class MessageOperator<TMessage> : IDisposable
         if (bodyTypeBuffer.IsEmpty)
             return null;
 
-        var bodyTypeName = JsonSerializer.Deserialize<string>(bodyTypeBuffer);
+        var bodyTypeName = Encoding.UTF8.GetString(bodyTypeBuffer);
         if (bodyTypeName is null)
             return null;
         if (this.bodyTypeCache.TryGetValue(bodyTypeName, out var bodyType))
@@ -143,7 +144,6 @@ public abstract class MessageOperator<TMessage> : IDisposable
     /// <param name="request">The message body.</param>
     /// <returns><c>true</c> if the message body could be read; otherwise, <c>false</c>.</returns>
     protected bool TryRead<T>(in TMessage message, [MaybeNullWhen(false)] out T request)
-        where T : notnull, IRequest
     {
         if (!IsEmpty(message))
         {

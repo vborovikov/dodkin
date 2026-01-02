@@ -60,7 +60,7 @@ public class QueueRequestHandlerTests
     [TestMethod]
     public async Task ProcessAsync_UnknownQuery_ExceptionThrown()
     {
-        await Assert.ThrowsAsync<TimeoutException>(() => requestDispatcher.RunAsync(new TestUnknownQuery()));
+        await Assert.ThrowsAsync<TimeoutException>(() => requestDispatcher.RunAsync(new TestUnknownQuery(), TimeSpan.FromSeconds(1)));
     }
 
     [TestMethod]
@@ -175,7 +175,7 @@ public class QueueRequestHandlerTests
         // Arrange
         requestHandler.CanDispatchRequestResult = true;
         requestHandler.ThrowException = true;
-        await Assert.ThrowsAsync<TimeoutException>(async () => await requestDispatcher.RunAsync(new TestQuery(9)));
+        await Assert.ThrowsAsync<TimeoutException>(async () => await requestDispatcher.RunAsync(new TestQuery(9), TimeSpan.FromSeconds(1)));
 
         // Act
         await Task.Delay(500); // Allow time for dispatching
