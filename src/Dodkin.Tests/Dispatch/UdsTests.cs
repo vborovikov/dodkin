@@ -559,42 +559,6 @@ public class UdsTests
     }
 
     [TestMethod]
-    public async Task TestConnectionPoolMaxConnections()
-    {
-        var socketPath = Path.GetTempFileName() + ".sock";
-        try
-        {
-            using var handler = new UdsTestRequestHandler(socketPath, handlerLogger);
-            var handlerTask = Task.Run(() => handler.ProcessAsync(CancellationToken.None));
-
-            using var pool = new UdsConnectionPool(socketPath, 2); // Max 2 connections
-            // Test that we can get 2 connections without blocking
-            var conn1 = await pool.ConnectAsync(CancellationToken.None);
-            var conn2 = await pool.ConnectAsync(CancellationToken.None);
-
-            // Test that a third connection would block (we'll use a short timeout to test)
-            var timeoutCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-            await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-                await pool.ConnectAsync(timeoutCts.Token));
-
-            // Return one connection to the pool
-            await pool.DisconnectAsync(conn2);
-
-            // Now we should be able to get another connection
-            var conn3 = await pool.ConnectAsync(CancellationToken.None);
-
-            // Clean up
-            await pool.DisconnectAsync(conn1);
-            await pool.DisconnectAsync(conn3);
-        }
-        finally
-        {
-            if (File.Exists(socketPath))
-                File.Delete(socketPath);
-        }
-    }
-
-    [TestMethod]
     public async Task TestCommandErrorHandling()
     {
         var socketPath = Path.GetTempFileName() + ".sock";
@@ -808,75 +772,6 @@ public class UdsTests
         }
         finally
         {
-            if (File.Exists(socketPath))
-                File.Delete(socketPath);
-        }
-    }
-
-    [TestMethod]
-    public async Task TestConnectionReuse()
-    {
-        var socketPath = Path.GetTempFileName() + ".sock";
-        try
-        {
-            using var handler = new UdsTestRequestHandler(socketPath, handlerLogger);
-            var handlerTask = Task.Run(() => handler.ProcessAsync(CancellationToken.None));
-
-            using var pool = new UdsConnectionPool(socketPath, 2);
-
-            // Get a connection
-            var conn1 = await pool.ConnectAsync(CancellationToken.None);
-            var connId1 = conn1.GetHashCode();
-
-            // Return it to the pool
-            await pool.DisconnectAsync(conn1);
-
-            // Get another connection - it might be the same one
-            var conn2 = await pool.ConnectAsync(CancellationToken.None);
-            var connId2 = conn2.GetHashCode();
-
-            // Return it to the pool
-            await pool.DisconnectAsync(conn2);
-
-            // The connections might be reused from the pool, so we just verify the flow works
-            Assert.IsTrue(conn1 != null && conn2 != null);
-        }
-        finally
-        {
-            if (File.Exists(socketPath))
-                File.Delete(socketPath);
-        }
-    }
-
-    [TestMethod]
-    public async Task TestConnectionPoolDisposal()
-    {
-        var socketPath = Path.GetTempFileName() + ".sock";
-        UdsConnectionPool pool = null;
-
-        try
-        {
-            using var handler = new UdsTestRequestHandler(socketPath, handlerLogger);
-            var handlerTask = Task.Run(() => handler.ProcessAsync(CancellationToken.None));
-            pool = new UdsConnectionPool(socketPath, 2);
-
-            // Get a few connections
-            var conn1 = await pool.ConnectAsync(CancellationToken.None);
-            var conn2 = await pool.ConnectAsync(CancellationToken.None);
-
-            // Put them back in the pool
-            await pool.DisconnectAsync(conn1);
-            await pool.DisconnectAsync(conn2);
-
-            // Disposal should work without exceptions
-            pool.Dispose();
-
-            // Verify that the pool is properly disposed
-            Assert.IsTrue(true);
-        }
-        finally
-        {
-            pool?.Dispose();
             if (File.Exists(socketPath))
                 File.Delete(socketPath);
         }

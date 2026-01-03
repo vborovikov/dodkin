@@ -1,16 +1,21 @@
 ﻿namespace Dodkin.Dispatch;
 
 using System;
+using System.Net.Sockets;
 
 public abstract class UdsOperator : MessageOperator<ReadOnlySpan<byte>>
 {
     protected const char PayloadSeparator = '\n';
     protected const int MaxConnections = 10;
 
-    protected UdsOperator()
+    protected UdsOperator(string socketPath)
     {
+        this.Endpoint = new(socketPath);
         this.Timeout = DefaultTimeout;
     }
+
+
+    public UnixDomainSocketEndPoint Endpoint { get; }
 
     /// <inheritdoc/>
     protected sealed override bool IsEmpty(in ReadOnlySpan<byte> message) => message.IsEmpty;

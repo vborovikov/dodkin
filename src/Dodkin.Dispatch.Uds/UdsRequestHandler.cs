@@ -20,8 +20,8 @@ public class UdsRequestHandler : UdsOperator, IRequestDispatcher
     }
 
     public UdsRequestHandler(string socketPath, IRequestDispatcher? requestDispatcher, ILogger logger)
+        : base(socketPath)
     {
-        this.Endpoint = new(socketPath);
         this.dispatcher = requestDispatcher ?? new InternalRequestDispatcher(this);
         this.log = logger;
 
@@ -40,8 +40,6 @@ public class UdsRequestHandler : UdsOperator, IRequestDispatcher
     {
         this.socket.Dispose();
     }
-
-    public UnixDomainSocketEndPoint Endpoint { get; }
 
     /// <summary>
     /// Starts processing request messages.
@@ -158,7 +156,7 @@ public class UdsRequestHandler : UdsOperator, IRequestDispatcher
                 {
                     socket = await server.AcceptAsync(cancellationToken).ConfigureAwait(false);
                 }
-                catch (ObjectDisposedException)
+                catch (ObjectDisposedException x)
                 {
                     yield break;
                 }

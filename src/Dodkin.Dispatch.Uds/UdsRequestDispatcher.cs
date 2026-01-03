@@ -1,7 +1,6 @@
 ﻿namespace Dodkin.Dispatch;
 
 using System;
-using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -9,12 +8,13 @@ using Relay.RequestModel;
 
 public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
 {
-    private readonly UdsConnectionPool connectionPool;
+    private readonly UdsConnectionManager connectionPool;
     private readonly ILogger log;
 
     public UdsRequestDispatcher(string socketPath, ILogger logger)
+        : base(socketPath)
     {
-        this.connectionPool = new(socketPath, MaxConnections);
+        this.connectionPool = new UdsImmediateConnectionPool(this.Endpoint);
         this.log = logger;
     }
 
@@ -45,7 +45,7 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
         using var timeoutCts = new CancellationTokenSource(timeout ?? this.Timeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(command.CancellationToken, timeoutCts.Token);
         var cancellationToken = linkedCts.Token;
-        var socket = await this.connectionPool.ConnectAsync(cancellationToken);
+        await using var cnn = await this.connectionPool.OpenConnectionAsync(cancellationToken);
         using var buffer = new Utf8MemoryBuffer();
         try
         {
@@ -53,11 +53,9 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
             buffer.TryAppend(PayloadSeparator);
             buffer.TrySerialize(command);
 
-            await socket.SendAsync(buffer.WrittenMemory, SocketFlags.None, cancellationToken);
-
+            await cnn.SendAsync(buffer, cancellationToken);
             buffer.Clear();
-            var bytesReceived = await socket.ReceiveAsync(buffer.GetMemory(), cancellationToken);
-            buffer.Advance(bytesReceived);
+            await cnn.ReceiveAsync(buffer, cancellationToken);
 
             var response = buffer.WrittenSpan;
             if (!response.SequenceEqual("ack"u8))
@@ -78,10 +76,6 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
             this.log.LogError(EventIds.CommandFailed, x, "Error executing command");
             throw;
         }
-        finally
-        {
-            await this.connectionPool.DisconnectAsync(socket);
-        }
     }
 
     private async Task<TResult> RunWaitAsync<TResult>(Query<TResult> query, TimeSpan? timeout)
@@ -89,18 +83,18 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
         using var timeoutCts = new CancellationTokenSource(timeout ?? this.Timeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(query.CancellationToken, timeoutCts.Token);
         var cancellationToken = linkedCts.Token;
-        var socket = await this.connectionPool.ConnectAsync(cancellationToken);
+        await using var cnn = await this.connectionPool.OpenConnectionAsync(cancellationToken);
         using var buffer = new Utf8MemoryBuffer();
         try
         {
             buffer.TryAppend(query.GetType().AssemblyQualifiedName);
             buffer.TryAppend(PayloadSeparator);
             buffer.TrySerialize(query);
-            await socket.SendAsync(buffer.WrittenMemory, SocketFlags.None, cancellationToken);
+
+            await cnn.SendAsync(buffer, cancellationToken);
 
             buffer.Clear();
-            var bytesReceived = await socket.ReceiveAsync(buffer.GetMemory(), cancellationToken);
-            buffer.Advance(bytesReceived);
+            await cnn.ReceiveAsync(buffer, cancellationToken);
 
             var response = buffer.WrittenSpan;
             if (TryRead<TResult>(response, out var result))
@@ -124,10 +118,6 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
         {
             this.log.LogError(EventIds.QueryFailed, x, "Error executing query");
             throw;
-        }
-        finally
-        {
-            await this.connectionPool.DisconnectAsync(socket);
         }
     }
 }
