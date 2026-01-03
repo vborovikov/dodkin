@@ -72,7 +72,7 @@ public abstract class MessageOperator<TMessage> : IDisposable
         if (bodyTypeBuffer.IsEmpty)
             return null;
 
-        var bodyTypeName = Encoding.UTF8.GetString(bodyTypeBuffer);
+        var bodyTypeName = DecodeTypeName(bodyTypeBuffer);
         if (bodyTypeName is null)
             return null;
         if (this.bodyTypeCache.TryGetValue(bodyTypeName, out var bodyType))
@@ -108,6 +108,13 @@ public abstract class MessageOperator<TMessage> : IDisposable
     /// <param name="message">The message.</param>
     /// <returns>The signature of the message as a read-only span of bytes.</returns>
     protected abstract ReadOnlySpan<byte> GetSignature(in TMessage message);
+
+    /// <summary>
+    /// Decodes the signature of the message.
+    /// </summary>
+    /// <param name="signature">The signature of the message</param>
+    /// <returns>The decoded message body type name.</returns>
+    protected abstract string? DecodeTypeName(ReadOnlySpan<byte> signature);
 
     /// <summary>
     /// Gets the body of the message.

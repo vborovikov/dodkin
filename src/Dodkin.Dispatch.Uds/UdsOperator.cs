@@ -2,6 +2,7 @@
 
 using System;
 using System.Net.Sockets;
+using System.Text;
 
 public abstract class UdsOperator : MessageOperator<ReadOnlySpan<byte>>
 {
@@ -28,6 +29,9 @@ public abstract class UdsOperator : MessageOperator<ReadOnlySpan<byte>>
 
         return [];
     }
+
+    /// <inheritdoc/>
+    protected override string? DecodeTypeName(ReadOnlySpan<byte> signature) => Encoding.UTF8.GetString(signature);
 
     /// <inheritdoc/>
     protected sealed override ReadOnlySpan<byte> GetBody(in ReadOnlySpan<byte> message)

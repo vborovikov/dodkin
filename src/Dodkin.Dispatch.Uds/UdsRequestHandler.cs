@@ -22,7 +22,7 @@ public class UdsRequestHandler : UdsOperator, IRequestDispatcher
     public UdsRequestHandler(string socketPath, IRequestDispatcher? requestDispatcher, ILogger logger)
         : base(socketPath)
     {
-        this.dispatcher = requestDispatcher ?? new InternalRequestDispatcher(this);
+        this.dispatcher = requestDispatcher ?? DefaultRequestDispatcher.From(this);
         this.log = logger;
 
         if (File.Exists(socketPath))
@@ -209,17 +209,5 @@ public class UdsRequestHandler : UdsOperator, IRequestDispatcher
         {
             await task.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
-    }
-
-    private sealed class InternalRequestDispatcher : DefaultRequestDispatcherBase
-    {
-        private readonly UdsRequestHandler requestHandler;
-
-        public InternalRequestDispatcher(UdsRequestHandler requestHandler)
-        {
-            this.requestHandler = requestHandler;
-        }
-
-        protected override object GetRequestHandler(Type requestHandlerType) => this.requestHandler;
     }
 }

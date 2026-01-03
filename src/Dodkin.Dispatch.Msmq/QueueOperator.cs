@@ -50,7 +50,7 @@ public abstract class QueueOperator : MessageOperator<Message>
     {
         var bodyType = body.GetType();
         var message = new Message(JsonSerializer.SerializeToUtf8Bytes(body),
-            Encoding.UTF8.GetBytes(bodyType.AssemblyQualifiedName ?? string.Empty))
+            JsonSerializer.SerializeToUtf8Bytes(bodyType.AssemblyQualifiedName))
         {
             CorrelationId = corellationId,
             Label = bodyType.Name,
@@ -90,6 +90,9 @@ public abstract class QueueOperator : MessageOperator<Message>
 
     /// <inheritdoc/>
     protected sealed override ReadOnlySpan<byte> GetSignature(in Message message) => message.Extension;
+
+    /// <inheritdoc/>
+    protected override string? DecodeTypeName(ReadOnlySpan<byte> signature) => JsonSerializer.Deserialize<string>(signature);
 
     /// <inheritdoc/>
     protected sealed override ReadOnlySpan<byte> GetBody(in Message message) => message.Body;
