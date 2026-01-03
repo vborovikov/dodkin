@@ -1,6 +1,7 @@
 namespace Dodkin.Tests.Dispatch;
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
@@ -47,8 +48,8 @@ internal class UdsTestRequestHandler : UdsRequestHandler,
     ICommandHandler<UdsTestCommand>,
     ICommandHandler<UdsTestComplexCommand>,
     ICommandHandler<UdsTestCommandWithResult>,
-    ICommandHandler<UdsTestTimeoutCommand>,
-    IQueryHandler<UdsTestTimeoutQuery, string>,
+    IAsyncCommandHandler<UdsTestTimeoutCommand>,
+    IAsyncQueryHandler<UdsTestTimeoutQuery, string>,
     ICommandHandler<UdsTestCancellationCommand>,
     IQueryHandler<UdsTestCancellationQuery, string>,
     ICommandHandler<UdsTestErrorCommand>,
@@ -73,15 +74,15 @@ internal class UdsTestRequestHandler : UdsRequestHandler,
         // Do nothing, just for testing
     }
 
-    public void Execute(UdsTestTimeoutCommand command)
+    public async Task ExecuteAsync(UdsTestTimeoutCommand command)
     {
         // For sync interface, we'll just delay briefly
-        Thread.Sleep(command.DelayMs);
+        await Task.Delay(command.DelayMs);
     }
 
-    public string Run(UdsTestTimeoutQuery query)
+    public async Task<string> RunAsync(UdsTestTimeoutQuery query)
     {
-        // For sync interface, return a simple result
+        await Task.Delay(query.DelayMs);
         return "Timeout result";
     }
 
@@ -716,17 +717,14 @@ public class UdsTests
         {
             using var handler = new UdsTestRequestHandler(socketPath, handlerLogger);
             var handlerTask = Task.Run(() => handler.ProcessAsync(CancellationToken.None));
-
             using var dispatcher = new UdsRequestDispatcher(socketPath, dispatcherLogger);
 
             // Execute multiple queries concurrently
             var tasks = new List<Task<string>>();
             for (int i = 0; i < MaxConnections; i++)
             {
-                int queryParam = i;
-                tasks.Add(dispatcher.RunAsync(new UdsTestQuery(queryParam)));
+                tasks.Add(dispatcher.RunAsync(new UdsTestQuery(i)));
             }
-
             var results = await Task.WhenAll(tasks);
 
             // Verify results
@@ -754,14 +752,12 @@ public class UdsTests
             using var dispatcher = new UdsRequestDispatcher(socketPath, dispatcherLogger);
 
             // Execute mixed commands and queries concurrently
-            var tasks = new List<Task>();
-            for (int i = 0; i < 5; i++)
+            await Parallel.ForAsync(0, MaxConnections / 2, async (i, _) =>
             {
-                tasks.Add(dispatcher.ExecuteAsync(new UdsTestCommand(i)));
-                tasks.Add(dispatcher.RunAsync(new UdsTestQuery(i)));
-            }
-
-            await Task.WhenAll(tasks);
+                await Task.WhenAll(
+                    dispatcher.ExecuteAsync(new UdsTestCommand(i)),
+                    dispatcher.RunAsync(new UdsTestQuery(i)));
+            });
 
             // Test passed if no exception was thrown
             Assert.IsTrue(true);
