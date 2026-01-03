@@ -6,7 +6,14 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Unicode;
 
-class Utf8MemoryBuffer : IBufferWriter<byte>, IDisposable
+interface IBufferReader<T>
+{
+    int WrittenCount { get; }
+    ReadOnlyMemory<T> WrittenMemory { get; }
+    ReadOnlySpan<T> WrittenSpan { get; }
+}
+
+class Utf8MemoryBuffer : IBufferReader<byte>, IBufferWriter<byte>, IDisposable
 {
     private const int KByte = 1024;
     private const int DefaultInitialBufferSize = 32 * KByte;
