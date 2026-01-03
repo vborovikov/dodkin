@@ -21,7 +21,7 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
     /// <inheritdoc/>
     protected override void Dispose(bool disposing)
     {
-        // No socket to dispose here as we create connections per request
+        this.connectionPool.Dispose();
     }
 
     /// <inheritdoc />
@@ -92,7 +92,6 @@ public class UdsRequestDispatcher : UdsOperator, IQueueRequestDispatcher
             buffer.TrySerialize(query);
 
             await cnn.SendAsync(buffer, cancellationToken);
-
             buffer.Clear();
             await cnn.ReceiveAsync(buffer, cancellationToken);
 
