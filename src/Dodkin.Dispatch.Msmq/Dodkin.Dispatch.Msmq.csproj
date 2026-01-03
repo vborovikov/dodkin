@@ -30,9 +30,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dodkin" Version="0.7.0" Condition="'$(Configuration)'=='Release'" />
+    <PackageReference Include="Dodkin" Version="0.7.0-beta.1" Condition="'$(Configuration)'=='Release'" />
     <ProjectReference Include="..\Dodkin\Dodkin.csproj" Condition="'$(Configuration)'=='Debug'" />
-    <PackageReference Include="Dodkin.Dispatch" Version="0.7.0" Condition="'$(Configuration)'=='Release'" />
+    <PackageReference Include="Dodkin.Dispatch" Version="0.7.0-beta.1" Condition="'$(Configuration)'=='Release'" />
     <ProjectReference Include="..\Dodkin.Dispatch\Dodkin.Dispatch.csproj" Condition="'$(Configuration)'=='Debug'" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
   </ItemGroup>
