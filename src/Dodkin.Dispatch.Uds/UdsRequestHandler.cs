@@ -10,6 +10,8 @@ using Relay.RequestModel.Default;
 
 public class UdsRequestHandler : UdsOperator, IRequestDispatcher
 {
+    private static readonly TimeSpan RequestExecutingThreshold = TimeSpan.FromMilliseconds(100);
+
     private readonly ILogger log;
     private readonly Socket socket;
     private readonly IRequestDispatcher dispatcher;
@@ -75,9 +77,19 @@ public class UdsRequestHandler : UdsOperator, IRequestDispatcher
                     {
                         try
                         {
-                            await ExecuteCommandAsync(command);
-                            //todo: RunInBackground(Task.Run(() => ExecuteCommandAsync(command), cancellationToken: default));
-                            buffer.TryAppend("ack");
+                            var commandExecutingTask = Task.Run(() => ExecuteCommandAsync(command), cancellationToken: default);
+                            
+                            // command can be executed fast or very slow, we wait for its completion 100 ms
+                            await Task.WhenAny(Task.Delay(RequestExecutingThreshold, cancellationToken), commandExecutingTask);
+
+                            // but the execution usually fails fast, we throw the exception
+                            if (commandExecutingTask.IsFaulted && commandExecutingTask.Exception?.InnerException is Exception commandError)
+                                throw commandError;
+
+                            // otherwise continue executing the command in the background
+                            RunInBackground(commandExecutingTask);
+
+                            buffer.TryAppend("ack"u8);
                         }
                         catch (Exception x)
                         {
@@ -118,7 +130,7 @@ public class UdsRequestHandler : UdsOperator, IRequestDispatcher
                     }
                     else
                     {
-                        buffer.TryAppend("what");
+                        buffer.TryAppend("what"u8);
                         this.log.LogWarning(EventIds.MessageRejected, "Rejected unrecognized message");
                     }
 

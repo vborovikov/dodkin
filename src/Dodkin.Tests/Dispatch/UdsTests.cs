@@ -549,7 +549,7 @@ public class UdsTests
 
             var command = new UdsTestTimeoutCommand(1000); // 1 second delay
             await Assert.ThrowsAsync<TimeoutException>(() =>
-                dispatcher.ExecuteAsync(command, TimeSpan.FromMilliseconds(100))); // Use explicit short timeout
+                dispatcher.ExecuteAsync(command, TimeSpan.FromMilliseconds(50))); // Use explicit short timeout
         }
         finally
         {
