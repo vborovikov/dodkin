@@ -132,6 +132,17 @@ class Utf8MemoryBuffer : IBufferReader<byte>, IBufferWriter<byte>, IDisposable
         return true;
     }
 
+    public bool TryAppend(ReadOnlySpan<byte> str)
+    {
+        if (this.CanAppend && str.TryCopyTo(this.memory.Span[this.bytesWritten..]))
+        {
+            this.bytesWritten += str.Length;
+            return true;
+        }
+
+        return false;
+    }
+
     public bool TryAppend(ReadOnlySpan<char> str)
     {
         if (this.CanAppend && Utf8.FromUtf16(str, this.memory.Span[this.bytesWritten..], out _, out var spanBytesWritten) == OperationStatus.Done)
